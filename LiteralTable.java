@@ -64,13 +64,27 @@ public class LiteralTable{
         return getLiteralID(String.valueOf(value));
     }
 
-    // Get the ID for a literal (String) directly
+    /**********************************************************
+     * METHOD: getLiteralID(String literal)                    *
+     * DESCRIPTION:                                            *
+     * Retrieves the ID of a given literal (as a String) from  *
+     * the table. If the literal does not exist, it returns -1. *
+     * PARAMETERS:                                             *
+     *  String literal - the literal value to search for       *
+     * RETURN VALUE:                                           *
+     *  Integer - the ID of the literal or -1 if not found     *
+     **********************************************************/
     public int getLiteralID(String literal) {
-        return literalMap.getOrDefault(literal, -1); // Return -1 if the literal is not found
+        for (Map.Entry<Integer, Integer> entry : literalMap.entrySet()) {
+            if (entry.getValue().toString().equals(literal)) {
+                return entry.getKey();  // Return the ID of the literal
+            }
+        }
+        return -1; // Return -1 if the literal is not found
     }
 
     public boolean containsLiteral(String literal){
-        return literalMap.containsKey(literal);
+        return getLiteralID(literal) != -1;
     }
 
     /**********************************************************

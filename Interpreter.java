@@ -4,6 +4,8 @@ public class Interpreter {
     private static final String KEYWORD_INTEGER = "integer";
     private static final String KEYWORD_INPUT = "input";
     private static final String KEYWORD_PRINT = "print";
+    private static final String KEYWORD_IF = "if";
+    private static final String KEYWORD_ELSE = "else";
 
     // Token IDs for the keywords and commands
     public static final Map<String, Integer> TOKEN_IDS = new HashMap<>() {{
@@ -20,8 +22,8 @@ public class Interpreter {
         put("/", 207);
         put("^", 208);
         // Add more tokens as needed
-        put("if", 103);
-        put("else", 104);
+        put(KEYWORD_IF, 103);
+        put(KEYWORD_ELSE, 104);
         put("{", 209);
         put("}", 210);
         put("==", 211);
@@ -346,19 +348,28 @@ public class Interpreter {
         // Validate the if-else structure
         validateIfElseStructure(tokens, tokenIDs);
 
-        int ifIndex = tokens.indexOf("if");
-        int elseIndex = tokens.indexOf("else");
+        int ifIndex = tokens.indexOf(KEYWORD_IF);
+        int elseIndex = tokens.indexOf(KEYWORD_ELSE);
 
-        // Extract the condition tokens and IDs
+        // Extract the condition tokens and their respective TokenIDs
         List<String> conditionTokens = extractConditionTokens(tokens, ifIndex, elseIndex);
         List<Integer> conditionTokenIDs = extractConditionTokenIDs(tokens, ifIndex, elseIndex);
+
+        // Create new lists for tokens and tokenIDs, including the "if" keyword and its token ID
+        List<String> modifiedTokens = new ArrayList<>(tokens);  // Make a copy of the original tokens
+        List<Integer> modifiedTokenIDs = new ArrayList<>(tokenIDs);  // Make a copy of the original tokenIDs
+
+        // Add the KEYWORD_IF token before the condition
+        modifiedTokens.add(ifIndex, KEYWORD_IF);  // Inserting "if" keyword at the start of the condition
+        modifiedTokenIDs.add(ifIndex, 103); // Token ID for "if" (103)
+
 
         // Print condition TokenIDs for debugging
         System.out.print("Condition TokenIDs: ");
         printTokenIDs(conditionTokenIDs);
 
-        // Create Evaluator and evaluate the condition directly
-        Evaluator evaluator = new Evaluator(symbolTable);  // Assuming Evaluator can use tokenIDs
+        // Create Evaluator to evaluate the condition, using both tokens and tokenIDs
+        Evaluator evaluator = new Evaluator(symbolTable);  // Assuming Evaluator can handle both tables
         boolean conditionResult = evaluator.evaluateCondition(conditionTokens, conditionTokenIDs);
 
         // Handle the if block
@@ -367,33 +378,30 @@ public class Interpreter {
 
         // If no `else` exists, process until the end of the tokens list
         if (elseIndex == -1) {
-            ifTokens = tokens.subList(ifIndex + 1, tokens.size());
-            ifTokenIDs = tokenIDs.subList(ifIndex + 1, tokenIDs.size());
+            ifTokens = modifiedTokens.subList(ifIndex + 1, modifiedTokens.size());
+            ifTokenIDs = modifiedTokenIDs.subList(ifIndex + 1, modifiedTokenIDs.size());
         } else {
             // Otherwise, process until the `else` token
-            ifTokens = tokens.subList(ifIndex + 1, elseIndex);
-            ifTokenIDs = tokenIDs.subList(ifIndex + 1, elseIndex);
+            ifTokens = modifiedTokens.subList(ifIndex + 1, elseIndex);
+            ifTokenIDs = modifiedTokenIDs.subList(ifIndex + 1, elseIndex);
         }
 
-        System.out.print("If Block TokenIDs: ");
-        printTokenIDs(ifTokenIDs);
-
-        // Execute the appropriate block based on the condition
+        // Execute the appropriate block based on the evaluated condition
         if (conditionResult) {
             executeBlock(ifTokens, ifTokenIDs);
         } else {
             // Handle else block if exists
             if (elseIndex != -1) {
-                List<String> elseTokens = tokens.subList(elseIndex + 1, tokens.size());
-                List<Integer> elseTokenIDs = tokenIDs.subList(elseIndex + 1, tokenIDs.size());
+                List<String> elseTokens = modifiedTokens.subList(elseIndex + 1, modifiedTokens.size());
+                List<Integer> elseTokenIDs = modifiedTokenIDs.subList(elseIndex + 1, modifiedTokenIDs.size());
 
-                System.out.print("Else Block TokenIDs: ");
-                printTokenIDs(elseTokenIDs);
-
+                // Execute the else block
                 executeBlock(elseTokens, elseTokenIDs);
             }
         }
     }
+
+
     public static void executeBlock(List<String> blockTokens, List<Integer> blockTokenIDs) {
         // Logic to execute the block
         System.out.print("Executing Block: ");
