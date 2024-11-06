@@ -1,0 +1,62 @@
+/*******************************************************************
+ * Tokenization Class *
+ * *
+ * PROGRAMMER: Emily Culp*
+ * COURSE: CS340 - Programming Language Design*
+ * DATE: 10/29/2024 *
+ * REQUIREMENT: Tokenization for the interpreter *
+ * *
+ * DESCRIPTION: *
+ * This class is responsible for tokenizing input commands into an array of tokens. *
+ * It breaks down the command string based on predefined delimiters and returns *
+ * an array of strings representing individual tokens. This functionality is essential *
+ * for processing commands in the interpreter. *
+ * *
+ * COPYRIGHT: This code is copyright (C) 2024 Emily Culp and Dean Zeller. *
+ * *
+ * CREDITS: This code was written with the help of ChatGPT. *
+ * *
+ *******************************************************************/
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+public class Tokenization {
+
+    private static final String TOKEN_REGEX = "\\w+|==|!=|<=|>=|[+\\-*/=(){}^<>.,?!:\"'\\[\\]]|\\d+|;";
+
+    /**********************************************************
+     * METHOD: tokenize(String command) *
+     * DESCRIPTION: Tokenizes a given command string into an array of tokens. *
+     * PARAMETERS: String command - the command string to tokenize *
+     * RETURN VALUE: String[] - an array of tokens extracted from the command *
+     **********************************************************/
+
+    public static String[] tokenize(String command) {
+        List<String> tokens = new ArrayList<>();
+        Matcher matcher = Pattern.compile(TOKEN_REGEX).matcher(command);
+
+        while (matcher.find()) {
+            String token = matcher.group().trim();
+
+            // Skip empty spaces and handle comments (if needed)
+            if (!token.isEmpty() && !token.equals(" ")) {
+                tokens.add(token);
+
+                // Enhanced debugging output for tokens
+                System.out.println("Matched token: " + token + " (type: " + getTokenType(token) + ")");
+            }
+        }
+
+        System.out.println("Tokens: " + Arrays.toString(tokens.toArray()));
+        return tokens.toArray(new String[0]);
+    }
+
+    // Helper method to identify token types (keywords, literals, operators, etc.)
+    private static String getTokenType(String token) {
+        if (token.matches("\\d+")) return "Literal";
+        if (token.matches("[+\\-*/=(){}^<>.,?!:\"'\\[\\]]")) return "Operator";
+        if (token.matches("integer|input|print")) return "Keyword";
+        return "Identifier";
+    }
+}
