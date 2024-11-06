@@ -149,30 +149,35 @@ public class Evaluator {
         }
     }
 
-    public boolean evaluateCondition(List<String> conditionTokens) {
-        // Example logic to process tokens, assuming a simple condition format
-        if (conditionTokens.size() < 3) {
-            throw new IllegalArgumentException("Condition format is invalid.");
+    public boolean evaluateCondition(List<String> conditionTokens, List<Integer> conditionTokenIDs) {
+        // Example: Evaluate a condition like a == 0 or x > 5
+        if (conditionTokens.size() == 3) {
+            String leftOperand = conditionTokens.get(0);
+            String operator = conditionTokens.get(1);
+            String rightOperand = conditionTokens.get(2);
+
+            // For example, handle comparison operators
+            if (operator.equals("==")) {
+                int leftValue = getValue(leftOperand);
+                int rightValue = getValue(rightOperand);
+                return leftValue == rightValue;
+            } else if (operator.equals(">")) {
+                int leftValue = getValue(leftOperand);
+                int rightValue = getValue(rightOperand);
+                return leftValue > rightValue;
+            }
+            // Add more conditions as needed for !=, <, etc.
         }
-
-        String operand1 = conditionTokens.get(0);
-        String operator = conditionTokens.get(1);
-        String operand2 = conditionTokens.get(2);
-
-        // Example: Check if operands are valid integers or variables, etc.
-        int value1 = getValue(operand1);
-        int value2 = getValue(operand2);
-
-        // Evaluate the condition based on the operator
-        return switch (operator) {
-            case "==" -> value1 == value2;
-            case "!=" -> value1 != value2;
-            case "<" -> value1 < value2;
-            case ">" -> value1 > value2;
-            case "<=" -> value1 <= value2;
-            case ">=" -> value1 >= value2;
-            default -> throw new IllegalArgumentException("Unsupported operator: " + operator);
-        };
+        return false;
+    }
+    // Helper method to check if a string is a numeric value
+    private boolean isNumeric(String str) {
+        try {
+            Integer.parseInt(str);
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 
 
@@ -220,18 +225,17 @@ public class Evaluator {
         return symbolTable.containsVariable(token); // Check if variable exists
     }
 
-    // Helper function to get the value of an operand (variable or literal)
     private int getValue(String operand) {
-        try {
-            // If it's an integer literal, parse it
-            return Integer.parseInt(operand);
-        } catch (NumberFormatException e) {
-            // Otherwise, assume it's a variable and fetch from SymbolTable
-            Integer variableValue = symbolTable.getValue(operand);
-            if (variableValue == null) {
-                throw new IllegalArgumentException("Unknown variable: " + operand);
-            }
-            return variableValue;
+        if (isPredefinedToken(operand)) {
+            // This is a literal, directly return its value
+            return Integer.parseInt(operand); // This assumes it's a number
+        } else {
+            // This is a variable, get its value from the symbol table
+            return symbolTable.getValue(operand);
         }
+    }
+
+    private static boolean isPredefinedToken(String token) {
+        return Interpreter.TOKEN_IDS.containsKey(token);
     }
 }

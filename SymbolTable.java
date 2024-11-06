@@ -80,7 +80,7 @@ public class SymbolTable {
      **********************************************************/
 
     // Adds a variable to the symbol table
-    public static void addVariable(String name, int value) {
+    public void addVariable(String name, int value) {
         if(!table.containsKey(name)){
             table.put(name, new Variable(name, nextId++));
         }
