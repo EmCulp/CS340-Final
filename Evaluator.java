@@ -25,7 +25,7 @@ public class Evaluator {
     private static final Map<String, Integer> OPERATOR_PRECEDENCE = Map.of(
             "+", 1, "-", 1, "*", 2, "/", 2, "^", 3
     );
-    private SymbolTable symbolTable;
+    private static SymbolTable symbolTable;
 
     /**********************************************************
      * CONSTRUCTOR: Evaluator(SymbolTable symbolTable)        *
@@ -149,38 +149,6 @@ public class Evaluator {
         }
     }
 
-    public boolean evaluateCondition(List<String> conditionTokens, List<Integer> conditionTokenIDs) {
-        // Example: Evaluate a condition like a == 0 or x > 5
-        if (conditionTokens.size() == 3) {
-            String leftOperand = conditionTokens.get(0);
-            String operator = conditionTokens.get(1);
-            String rightOperand = conditionTokens.get(2);
-
-            // For example, handle comparison operators
-            if (operator.equals("==")) {
-                int leftValue = getValue(leftOperand);
-                int rightValue = getValue(rightOperand);
-                return leftValue == rightValue;
-            } else if (operator.equals(">")) {
-                int leftValue = getValue(leftOperand);
-                int rightValue = getValue(rightOperand);
-                return leftValue > rightValue;
-            }
-            // Add more conditions as needed for !=, <, etc.
-        }
-        return false;
-    }
-    // Helper method to check if a string is a numeric value
-    private boolean isNumeric(String str) {
-        try {
-            Integer.parseInt(str);
-            return true;
-        } catch (NumberFormatException e) {
-            return false;
-        }
-    }
-
-
     /**********************************************************
      * METHOD: precedence(String operator)                    *
      * DESCRIPTION: Returns the precedence of the given       *
@@ -212,30 +180,53 @@ public class Evaluator {
         }
     }
 
-    /**********************************************************
-     * METHOD: isVariable(String token)                       *
-     * DESCRIPTION: Checks if the given token is a valid      *
-     *              variable in the symbol table.             *
-     * PARAMETERS: String token - the token to check.         *
-     * RETURN VALUE: boolean - true if the token is a variable*
-     *              otherwise false.                          *
-     **********************************************************/
+    public boolean evaluateCondition(List<String> tokens, List<Integer> tokenIDs) {
+        // Assume the tokens are in the form [a, ==, 0] or [a, !=, b]
+        String leftOperand = tokens.get(0);
+        String operator = tokens.get(1);
+        String rightOperand = tokens.get(2);
 
-    private boolean isVariable(String token) {
-        return symbolTable.containsVariable(token); // Check if variable exists
-    }
+        int leftValue = getValue(leftOperand);   // Get value from symbol table or literal
+        int rightValue = getValue(rightOperand);
 
-    private int getValue(String operand) {
-        if (isPredefinedToken(operand)) {
-            // This is a literal, directly return its value
-            return Integer.parseInt(operand); // This assumes it's a number
-        } else {
-            // This is a variable, get its value from the symbol table
-            return symbolTable.getValue(operand);
+        switch (operator) {
+            case "==":
+                return leftValue == rightValue;
+            case "!=":
+                return leftValue != rightValue;
+            case "<":
+                return leftValue < rightValue;
+            case ">":
+                return leftValue > rightValue;
+            case "<=":
+                return leftValue <= rightValue;
+            case ">=":
+                return leftValue >= rightValue;
+            default:
+                return false;  // Invalid operator
         }
     }
 
-    private static boolean isPredefinedToken(String token) {
-        return Interpreter.TOKEN_IDS.containsKey(token);
+    // Helper method to get the value of a token (either from the symbol table or directly as a literal value)
+    private static int getValue(String token) {
+        // Check if the token is a variable (i.e., it exists in the symbol table)
+        if (isVariable(token)) {
+            // Fetch the variable's value from the symbol table
+            return symbolTable.getValue(token);  // Assuming symbolTable stores variables and their values
+        } else {
+            // Check if the token is a literal integer
+            try {
+                return Integer.parseInt(token);  // Parse the token as an integer if it's a literal value
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid token for getValue: " + token);
+                return 0;  // Return a default value or handle the error appropriately
+            }
+        }
     }
+
+    // Method to check if the token is a variable (you can modify this to check based on your symbol table)
+    private static boolean isVariable(String token) {
+        return symbolTable.containsVariable(token);  // Assuming symbolTable is a map of variable names to values
+    }
+
 }

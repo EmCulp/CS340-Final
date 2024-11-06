@@ -345,48 +345,45 @@ public class Interpreter {
     }
 
     public static void handleIfElse(List<String> tokens, List<Integer> tokenIDs) {
+        // Find the index of the 'if' token (which should be at the start)
+        int ifIndex = tokens.indexOf("if");
+
         // Validate the if-else structure
         validateIfElseStructure(tokens, tokenIDs);
 
-        int ifIndex = tokens.indexOf(KEYWORD_IF);
-        int elseIndex = tokens.indexOf(KEYWORD_ELSE);
+        // Find the start and end index of the condition within the parentheses
+        int startCondition = tokens.indexOf("(") + 1;  // Skip '('
+        int endCondition = tokens.indexOf(")");  // Find the closing ')'
 
-        // Extract the condition tokens and their respective TokenIDs
-        List<String> conditionTokens = extractConditionTokens(tokens, ifIndex, elseIndex);
-        List<Integer> conditionTokenIDs = extractConditionTokenIDs(tokens, ifIndex, elseIndex);
+        // Extract the tokens between '(' and ')', which should be the condition
+        List<String> conditionTokens = tokens.subList(startCondition, endCondition);
+        List<Integer> conditionTokenIDs = tokenIDs.subList(startCondition, endCondition);
 
-        // Create new lists for condition tokens and token IDs to prepend the 'if' token
-        List<String> modifiedConditionTokens = new ArrayList<>();
-        List<Integer> modifiedConditionTokenIDs = new ArrayList<>();
-
-        // Add the "if" token (103) at the beginning of the lists
-        modifiedConditionTokens.add(String.valueOf(KEYWORD_IF));
-        modifiedConditionTokenIDs.add(103);
-
-        // Add the original condition tokens and token IDs after the "if" token
-        modifiedConditionTokens.addAll(conditionTokens);
-        modifiedConditionTokenIDs.addAll(conditionTokenIDs);
-
-        // Print condition TokenIDs for debugging
+        // Print the token IDs instead of the values for debugging
         System.out.print("Condition TokenIDs: ");
-        printTokenIDs(modifiedConditionTokenIDs);
+        for (Integer tokenID : conditionTokenIDs) {
+            System.out.print(tokenID + " ");  // Print each token ID
+        }
+        System.out.println();  // New line after printing token IDs
 
-        // Create Evaluator to evaluate the condition, using both tokens and tokenIDs
-        Evaluator evaluator = new Evaluator(symbolTable);  // Assuming Evaluator can handle both tables
-        boolean conditionResult = evaluator.evaluateCondition(modifiedConditionTokens, modifiedConditionTokenIDs);
+        // Now, pass the extracted condition tokens to the evaluator
+        Evaluator evaluator = new Evaluator(symbolTable); // Assuming you have a symbolTable
+        boolean conditionResult = evaluator.evaluateCondition(conditionTokens, conditionTokenIDs);
 
-        // Handle the if block
+        // Proceed with if-else logic
+        int elseIndex = tokens.indexOf("else");
+
         List<String> ifTokens;
         List<Integer> ifTokenIDs;
 
-        // If no `else` exists, process until the end of the tokens list
         if (elseIndex == -1) {
-            ifTokens = tokens.subList(ifIndex + 1, tokens.size());
-            ifTokenIDs = tokenIDs.subList(ifIndex + 1, tokenIDs.size());
+            // If there's no "else", the block goes from the next token after '(' to the end
+            ifTokens = tokens.subList(endCondition + 1, tokens.size());
+            ifTokenIDs = tokenIDs.subList(endCondition + 1, tokenIDs.size());
         } else {
-            // Otherwise, process until the `else` token
-            ifTokens = tokens.subList(ifIndex + 1, elseIndex);
-            ifTokenIDs = tokenIDs.subList(ifIndex + 1, elseIndex);
+            // If there's an "else", process the tokens between the closing '}' of the if block and 'else'
+            ifTokens = tokens.subList(endCondition + 1, elseIndex);
+            ifTokenIDs = tokenIDs.subList(endCondition + 1, elseIndex);
         }
 
         // Execute the appropriate block based on the evaluated condition
@@ -397,19 +394,19 @@ public class Interpreter {
             if (elseIndex != -1) {
                 List<String> elseTokens = tokens.subList(elseIndex + 1, tokens.size());
                 List<Integer> elseTokenIDs = new ArrayList<>();
-                elseTokenIDs.add(104);
+                elseTokenIDs.add(104); // "else" token ID
 
-                // Map `elseTokens` to IDs from the symbol/literal tables
+                // Add token IDs for else block tokens
                 for (String token : elseTokens) {
                     elseTokenIDs.add(getTokenID(token));
                 }
 
-                // Append else tokens to conditionTokenIDs for printing the full condition path
-//                conditionTokenIDs.addAll(elseTokenIDs);
-
-                // Print Condition TokenIDs including else block
+                // Print Else Block TokenIDs for debugging
                 System.out.print("Else Block TokenIDs: ");
-                printTokenIDs(elseTokenIDs);
+                for (Integer elseTokenID : elseTokenIDs) {
+                    System.out.print(elseTokenID + " ");  // Print each else block token ID
+                }
+                System.out.println();  // New line after printing else block token IDs
 
                 // Execute the else block
                 executeBlock(elseTokens, elseTokenIDs);
@@ -428,32 +425,40 @@ public class Interpreter {
     }
 
     private static int getTokenID(String token) {
-        // Check if the token is a reserved keyword (like "if" or "else")
+        // Check if the token is a predefined keyword or operator (like "if", "else", "==", etc.)
         if (TOKEN_IDS.containsKey(token)) {
+            // Print the token ID for keywords/operators
+            System.out.println("Token: " + token + ", Token ID: " + TOKEN_IDS.get(token));
             return TOKEN_IDS.get(token);
         }
+        // Check if the token is a variable (like 'a', 'b', etc.)
+        else if (symbolTable.containsVariable(token)) {
+            // Retrieve the token ID for the variable from the symbol table
+            int tokenID = symbolTable.getId(token);
+            // Print the token ID for the variable
+            System.out.println("Token: " + token + ", Token ID (Variable): " + tokenID);
 
-        // Check if the token is an identifier (variable) in the symbol table
-        if (symbolTable.containsVariable(token)) {
-            return symbolTable.getId(token);
+            // Retrieve the value of the variable for condition evaluation (use value in comparison)
+            int variableValue = symbolTable.getValue(token);
+
+            // Return the token ID to be used for condition evaluation (if needed)
+            return tokenID;
         }
+        // Check if the token is a numeric literal
+        else if (isNumericLiteral(token)) {
+            int literalValue = Integer.parseInt(token); // Convert numeric literals to int
+            int literalID = literalTable.getLiteralID(literalValue); // Check if the literal already has an ID
 
-        // Check if the token is a literal (e.g., a number)
-        if (isNumericLiteral(token)) {
-            int literalValue = Integer.parseInt(token); // Convert the string token to an integer
-            int literalID = literalTable.getLiteralID(literalValue); // Retrieves ID if it exists
             if (literalID == -1) {
-                literalID = literalTable.addLiteral(literalValue); // Adds literal if not already present
+                literalID = literalTable.addLiteral(literalValue); // Add literal if not already present
             }
+
+            // Print the token ID for the literal
+            System.out.println("Token: " + token + ", Token ID (Literal): " + literalID);
             return literalID;
         }
 
-        // Handle operators
-        if (TOKEN_IDS.containsKey(token)) {
-            return TOKEN_IDS.get(token); // Assuming OPERATORS is a map of operator tokens and their IDs
-        }
-
-        // Return -1 if no match found
+        // Return -1 if token is not found
         return -1;
     }
 
@@ -483,14 +488,17 @@ public class Interpreter {
     }
 
     public static List<String> extractConditionTokens(List<String> tokens, int ifIndex, int elseIndex) {
-        if (elseIndex == -1) {
-            // Extract condition from after "if" until the end of the tokens list
-            return tokens.subList(ifIndex + 1, tokens.size());
-        } else {
-            // Extract condition between "if" and "else"
-            return tokens.subList(ifIndex + 1, elseIndex);
+        List<String> conditionTokens = new ArrayList<>();
+        int start = ifIndex + 1; // Skip "if"
+        int end = tokens.indexOf(")"); // Find the closing parenthesis
+
+        if (end != -1) {
+            // Get tokens between "(" and ")"
+            conditionTokens.addAll(tokens.subList(start, end));
         }
+        return conditionTokens;
     }
+
 
     // This method processes the condition tokens and maps them to TokenIDs
     private static List<Integer> extractConditionTokenIDs(List<String> tokens, int ifIndex, int elseIndex) {
@@ -529,5 +537,38 @@ public class Interpreter {
         System.out.println();
     }
 
+    public static boolean isVariable(String token) {
+        // Check if the token is a valid variable name
+        // Variable names usually consist of alphabetic characters and digits, but cannot start with a digit
+        if (token == null || token.isEmpty()) {
+            return false;
+        }
+
+        // Variable names should not be a keyword
+        if (isKeyword(token)) {
+            return false;
+        }
+
+        // Check if the first character is a letter (a valid variable name can't start with a number)
+        if (!Character.isLetter(token.charAt(0))) {
+            return false;
+        }
+
+        // Ensure the rest of the characters are alphanumeric (letters or digits)
+        for (int i = 1; i < token.length(); i++) {
+            if (!Character.isLetterOrDigit(token.charAt(i))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public static boolean isKeyword(String token) {
+        // List of known keywords (you can add more as needed)
+        Set<String> keywords = new HashSet<>(Arrays.asList("if", "else", "print", "input", "integer"));
+
+        return keywords.contains(token);
+    }
 
 }
