@@ -351,7 +351,7 @@ public class Interpreter {
 
         // Extract the condition tokens and IDs
         List<String> conditionTokens = extractConditionTokens(tokens, ifIndex, elseIndex);
-        List<Integer> conditionTokenIDs = extractConditionTokenIDs(tokenIDs, ifIndex, elseIndex);
+        List<Integer> conditionTokenIDs = extractConditionTokenIDs(tokens, ifIndex, elseIndex);
 
         // Print condition TokenIDs for debugging
         System.out.print("Condition TokenIDs: ");
@@ -442,13 +442,29 @@ public class Interpreter {
         }
     }
 
-    public static List<Integer> extractConditionTokenIDs(List<Integer> tokenIDs, int ifIndex, int elseIndex) {
-        if (elseIndex == -1) {
-            // Extract condition token IDs from after "if" until the end
-            return tokenIDs.subList(ifIndex + 1, tokenIDs.size());
+    // This method processes the condition tokens and maps them to TokenIDs
+    private static List<Integer> extractConditionTokenIDs(List<String> tokens, int ifIndex, int elseIndex) {
+        List<Integer> conditionTokenIDs = new ArrayList<>();
+        List<String> conditionTokens = extractConditionTokens(tokens, ifIndex, elseIndex);
+
+        for (String token : conditionTokens) {
+            if (isPredefinedToken(token)) {
+                // If token is predefined, use its corresponding TokenID
+                conditionTokenIDs.add(TOKEN_IDS.get(token));
+            } else {
+                // Otherwise, this could be a variable or literal; retrieve its value
+                conditionTokenIDs.add(getTokenIDForVariableOrLiteral(token));
+            }
+        }
+        return conditionTokenIDs;
+    }
+
+    private static int getTokenIDForVariableOrLiteral(String token) {
+        // Retrieve the token ID for a variable or literal (this part depends on your symbol/literal table structure)
+        if (symbolTable.containsVariable(token)) {
+            return symbolTable.getId(token);  // Assuming method returns ID of the variable
         } else {
-            // Extract condition token IDs between "if" and "else"
-            return tokenIDs.subList(ifIndex + 1, elseIndex);
+            return literalTable.getLiteralID(token);  // Assuming method returns ID of the literal
         }
     }
 
@@ -457,7 +473,6 @@ public class Interpreter {
     }
 
     public static void printTokenIDs(List<Integer> tokenIDs) {
-        System.out.print("Block TokenIDs: ");
         for (Integer id : tokenIDs) {
             System.out.print(id + " ");
         }
