@@ -355,22 +355,25 @@ public class Interpreter {
         List<String> conditionTokens = extractConditionTokens(tokens, ifIndex, elseIndex);
         List<Integer> conditionTokenIDs = extractConditionTokenIDs(tokens, ifIndex, elseIndex);
 
-        // Create new lists for tokens and tokenIDs, including the "if" keyword and its token ID
-        List<String> modifiedTokens = new ArrayList<>(tokens);  // Make a copy of the original tokens
-        List<Integer> modifiedTokenIDs = new ArrayList<>(tokenIDs);  // Make a copy of the original tokenIDs
+        // Create new lists for condition tokens and token IDs to prepend the 'if' token
+        List<String> modifiedConditionTokens = new ArrayList<>();
+        List<Integer> modifiedConditionTokenIDs = new ArrayList<>();
 
-        // Add the KEYWORD_IF token before the condition
-        modifiedTokens.add(ifIndex, KEYWORD_IF);  // Inserting "if" keyword at the start of the condition
-        modifiedTokenIDs.add(ifIndex, 103); // Token ID for "if" (103)
+        // Add the "if" token (103) at the beginning of the lists
+        modifiedConditionTokens.add(String.valueOf(KEYWORD_IF));
+        modifiedConditionTokenIDs.add(103);
 
+        // Add the original condition tokens and token IDs after the "if" token
+        modifiedConditionTokens.addAll(conditionTokens);
+        modifiedConditionTokenIDs.addAll(conditionTokenIDs);
 
         // Print condition TokenIDs for debugging
         System.out.print("Condition TokenIDs: ");
-        printTokenIDs(conditionTokenIDs);
+        printTokenIDs(modifiedConditionTokenIDs);
 
         // Create Evaluator to evaluate the condition, using both tokens and tokenIDs
         Evaluator evaluator = new Evaluator(symbolTable);  // Assuming Evaluator can handle both tables
-        boolean conditionResult = evaluator.evaluateCondition(conditionTokens, conditionTokenIDs);
+        boolean conditionResult = evaluator.evaluateCondition(modifiedConditionTokens, modifiedConditionTokenIDs);
 
         // Handle the if block
         List<String> ifTokens;
@@ -378,12 +381,12 @@ public class Interpreter {
 
         // If no `else` exists, process until the end of the tokens list
         if (elseIndex == -1) {
-            ifTokens = modifiedTokens.subList(ifIndex + 1, modifiedTokens.size());
-            ifTokenIDs = modifiedTokenIDs.subList(ifIndex + 1, modifiedTokenIDs.size());
+            ifTokens = tokens.subList(ifIndex + 1, tokens.size());
+            ifTokenIDs = tokenIDs.subList(ifIndex + 1, tokenIDs.size());
         } else {
             // Otherwise, process until the `else` token
-            ifTokens = modifiedTokens.subList(ifIndex + 1, elseIndex);
-            ifTokenIDs = modifiedTokenIDs.subList(ifIndex + 1, elseIndex);
+            ifTokens = tokens.subList(ifIndex + 1, elseIndex);
+            ifTokenIDs = tokenIDs.subList(ifIndex + 1, elseIndex);
         }
 
         // Execute the appropriate block based on the evaluated condition
@@ -392,8 +395,21 @@ public class Interpreter {
         } else {
             // Handle else block if exists
             if (elseIndex != -1) {
-                List<String> elseTokens = modifiedTokens.subList(elseIndex + 1, modifiedTokens.size());
-                List<Integer> elseTokenIDs = modifiedTokenIDs.subList(elseIndex + 1, modifiedTokenIDs.size());
+                List<String> elseTokens = tokens.subList(elseIndex + 1, tokens.size());
+                List<Integer> elseTokenIDs = new ArrayList<>();
+                elseTokenIDs.add(104);
+
+                // Map `elseTokens` to IDs from the symbol/literal tables
+                for (String token : elseTokens) {
+                    elseTokenIDs.add(getTokenID(token));
+                }
+
+                // Append else tokens to conditionTokenIDs for printing the full condition path
+//                conditionTokenIDs.addAll(elseTokenIDs);
+
+                // Print Condition TokenIDs including else block
+                System.out.print("Else Block TokenIDs: ");
+                printTokenIDs(elseTokenIDs);
 
                 // Execute the else block
                 executeBlock(elseTokens, elseTokenIDs);
@@ -411,19 +427,45 @@ public class Interpreter {
         System.out.println();
     }
 
-    private int getTokenID(String token) {
-        // This method should return the correct token ID for each token
-        if (token.equals("if")) {
-            return TOKEN_IDS.get("if");
-        } else if (token.equals("else")) {
-            return TOKEN_IDS.get("else");
-        } else if (token.equals("=")) {
-            return TOKEN_IDS.get("=");
+    private static int getTokenID(String token) {
+        // Check if the token is a reserved keyword (like "if" or "else")
+        if (TOKEN_IDS.containsKey(token)) {
+            return TOKEN_IDS.get(token);
         }
-        // Add more token mappings as needed
-        return -1; // Default case if token is not found
+
+        // Check if the token is an identifier (variable) in the symbol table
+        if (symbolTable.containsVariable(token)) {
+            return symbolTable.getId(token);
+        }
+
+        // Check if the token is a literal (e.g., a number)
+        if (isNumericLiteral(token)) {
+            int literalValue = Integer.parseInt(token); // Convert the string token to an integer
+            int literalID = literalTable.getLiteralID(literalValue); // Retrieves ID if it exists
+            if (literalID == -1) {
+                literalID = literalTable.addLiteral(literalValue); // Adds literal if not already present
+            }
+            return literalID;
+        }
+
+        // Handle operators
+        if (TOKEN_IDS.containsKey(token)) {
+            return TOKEN_IDS.get(token); // Assuming OPERATORS is a map of operator tokens and their IDs
+        }
+
+        // Return -1 if no match found
+        return -1;
     }
 
+    // Helper method to check if a token is a numeric literal
+    private static boolean isNumericLiteral(String token) {
+        try {
+            Integer.parseInt(token);
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
 
     public static void validateIfElseStructure(List<String> tokens, List<Integer> tokenIDs) {
         int ifIndex = tokens.indexOf("if");
