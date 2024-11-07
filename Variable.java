@@ -39,6 +39,12 @@ public class Variable {
         this.id = id;
     }
 
+    public Variable(String name, int value, int id) {
+        this.name = name;
+        this.value = value;
+        this.id = id;
+    }
+
     /**********************************************************
      * METHOD: getName()                                       *
      * DESCRIPTION:                                            *

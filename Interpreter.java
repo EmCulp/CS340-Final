@@ -6,6 +6,7 @@ public class Interpreter {
     private static final String KEYWORD_PRINT = "print";
     private static final String KEYWORD_IF = "if";
     private static final String KEYWORD_ELSE = "else";
+    private static final String KEYWORD_WHILE = "while";
 
     // Token IDs for the keywords and commands
     public static final Map<String, Integer> TOKEN_IDS = new HashMap<>() {{
@@ -24,6 +25,7 @@ public class Interpreter {
         // Add more tokens as needed
         put(KEYWORD_IF, 103);
         put(KEYWORD_ELSE, 104);
+        put(KEYWORD_WHILE, 105);
         put("{", 209);
         put("}", 210);
         put("==", 211);
@@ -79,46 +81,81 @@ public class Interpreter {
         List<String> tokenID = Arrays.asList(tokens);
         List<Integer> id = new ArrayList<>();
 
-        for(String t : tokenID){
+        for (String t : tokenID) {
             id.add(interpreter.getTokenID(t));
         }
 
-        //handle the new 'if-else' structure
-        if(tokens[0].equals("if")){
-            handleIfElse(tokenID, id);
-            return;
-        }
+        // Check for the 'while' keyword
+        if (tokens[0].equals("while")) {
+            int conditionStart = -1;
+            int conditionEnd = -1;
 
-        // Check if the last token is a semicolon
-        if (tokens.length >= 3 && tokens[tokens.length - 1].equals(";")) {
-            // Handle variable declaration or assignment
-            if (tokens[0].equals(KEYWORD_INTEGER)) {
-                // Variable declaration without assignment (e.g., "integer a;")
-                if (tokens.length == 3) {
-                    handleVariableDeclaration(tokens);
-                }
-                // Variable declaration with assignment (e.g., "integer a = 15;")
-                else if (tokens.length == 5 && tokens[2].equals("=")) {
-//                    String input = String.join(" ", tokens);
-                    interpreter.handleAssignment(tokens);
-                } else {
-                    System.out.println("Syntax error: Invalid variable declaration.");
+            // Find the parentheses that enclose the condition
+            for (int i = 0; i < tokens.length; i++) {
+                if (tokens[i].equals("(")) {
+                    conditionStart = i;
+                } else if (tokens[i].equals(")")) {
+                    conditionEnd = i;
+                    break;
                 }
             }
-            // Handle assignments (e.g., "sum = a + b + c;")
-            else if (tokens.length >= 3 && tokens[1].equals("=")) {
-//                String input = String.join(" ", tokens);
-                interpreter.handleAssignment(tokens);
+
+            // Extract the condition tokens (e.g., "a < 5")
+            List<String> conditionTokens = new ArrayList<>();
+            for (int i = conditionStart + 1; i < conditionEnd; i++) {
+                conditionTokens.add(tokens[i]);
             }
-            else if (tokens[0].equals(KEYWORD_INPUT)) {
-                handleInput(tokens);
-            } else if (tokens[0].equals(KEYWORD_PRINT)) {
-                handlePrint(tokens);
-            } else {
-                System.out.println("Syntax error: Unrecognized command");
+
+            // Convert conditionTokens into a string for easier processing (e.g., "a < 5")
+            String condition = String.join(" ", conditionTokens);
+
+            // Extract the block of code inside the braces
+            List<String> blockTokens = new ArrayList<>();
+            boolean insideBlock = false;
+            for (int i = 0; i < tokens.length; i++) {
+                if (tokens[i].equals("{")) {
+                    insideBlock = true;
+                    continue;  // Skip the '{'
+                } else if (tokens[i].equals("}")) {
+                    break;  // Stop when '}' is encountered
+                }
+                if (insideBlock) {
+                    blockTokens.add(tokens[i]);
+                }
             }
+
+            // Call handleWhileLoop with the extracted condition and block
+            handleWhileLoop(condition, blockTokens);
         } else {
-            System.out.println("Syntax error: Command must end with a semicolon");
+            // Handle other commands like 'if' statements or assignments
+            if (tokens[0].equals("if")) {
+                handleIfElse(tokenID, id);
+                return;
+            }
+
+            // Check if the last token is a semicolon to handle assignments and declarations
+            if (tokens.length >= 3 && tokens[tokens.length - 1].equals(";")) {
+                // Handle variable declaration or assignment
+                if (tokens[0].equals(KEYWORD_INTEGER)) {
+                    if (tokens.length == 3) {
+                        handleVariableDeclaration(tokens);  // Variable declaration
+                    } else if (tokens.length == 5 && tokens[2].equals("=")) {
+                        interpreter.handleAssignment(tokens);  // Variable assignment
+                    } else {
+                        System.out.println("Syntax error: Invalid variable declaration.");
+                    }
+                } else if (tokens.length >= 3 && tokens[1].equals("=")) {
+                    interpreter.handleAssignment(tokens);  // Assignment
+                } else if (tokens[0].equals(KEYWORD_INPUT)) {
+                    handleInput(tokens);  // Handle input
+                } else if (tokens[0].equals(KEYWORD_PRINT)) {
+                    handlePrint(tokens);  // Handle print
+                } else {
+                    System.out.println("Syntax error: Unrecognized command");
+                }
+            } else {
+                System.out.println("Syntax error: Command must end with a semicolon");
+            }
         }
     }
 
@@ -344,6 +381,32 @@ public class Interpreter {
         }
     }
 
+    public static void handleWhileLoop(String condition, List<String> blockTokens) throws Exception {
+        // Evaluate the initial condition of the while loop
+        while (evaluateCondition(condition)) {
+            System.out.println("Condition evaluated to true, executing block...");
+
+            // Combine the block tokens into a single string for processing (e.g., "a = a + 1;")
+            String block = String.join(" ", blockTokens);
+
+            // Execute the block as a single command
+            String[] blockCommandTokens = block.split(";");
+            for (String statement : blockCommandTokens) {
+                if (!statement.trim().isEmpty()) {
+                    System.out.println("Executing statement: " + statement);
+                    String[] tokens = statement.trim().split("\\s+");  // Split the statement into tokens
+                    executeCommand(tokens);  // Execute each statement inside the block
+                }
+            }
+
+            // After executing the block, check the condition again
+            if (!evaluateCondition(condition)) {
+                System.out.println("Condition evaluated to false, exiting loop.");
+            }
+        }
+    }
+
+
     public static void handleIfElse(List<String> tokens, List<Integer> tokenIDs) {
         // Find the index of the 'if' token (which should be at the start)
         int ifIndex = tokens.indexOf("if");
@@ -503,4 +566,111 @@ public class Interpreter {
         }
     }
 
+    public static void validateWhileStructure(List<String> tokens, List<Integer> tokenIDs) {
+        if (tokens.isEmpty() || !tokens.get(0).equals("while")) {
+            throw new IllegalArgumentException("Expected 'while' at the start of the statement.");
+        }
+
+        int openParenIndex = tokens.indexOf("(");
+        if (openParenIndex == -1) {
+            throw new IllegalArgumentException("Expected '(' after 'while'.");
+        }
+
+        int closeParenIndex = tokens.indexOf(")");
+        if (closeParenIndex == -1 || closeParenIndex < openParenIndex) {
+            throw new IllegalArgumentException("Expected ')' after the condition.");
+        }
+
+        int openBraceIndex = tokens.indexOf("{");
+        if (openBraceIndex == -1) {
+            throw new IllegalArgumentException("Expected '{' to start the block of code.");
+        }
+
+        int closeBraceIndex = tokens.indexOf("}");
+        if (closeBraceIndex == -1) {
+            throw new IllegalArgumentException("Expected '}' to close the block of code.");
+        }
+
+        validateCondition(tokens.subList(openParenIndex + 1, closeParenIndex), tokenIDs.subList(openParenIndex + 1, closeParenIndex));
+    }
+
+    public static void validateCondition(List<String> conditionTokens, List<Integer> conditionTokenIDs) {
+        // Basic validation to ensure that the condition tokens represent a valid expression.
+        // You can expand this to perform more advanced expression validation.
+        if (conditionTokens.isEmpty()) {
+            throw new IllegalArgumentException("Condition inside 'while' cannot be empty.");
+        }
+
+        // Further checks could go here, like verifying that the condition is a valid logical or comparison expression.
+        // For now, let's just check that the tokens form a simple expression:
+        for (String token : conditionTokens) {
+            if (token.equals("==") || token.equals("<") || token.equals(">") || token.equals("!=")) {
+                continue;  // Valid operators
+            }
+
+            // Check for valid operands (like variables or constants)
+            if (!isValidOperand(token)) {
+                throw new IllegalArgumentException("Invalid operand in the 'while' condition: " + token);
+            }
+        }
+    }
+
+    private static boolean isValidOperand(String token) {
+        // For simplicity, consider an operand valid if it's a number or a known variable.
+        // You can enhance this method with more rules (e.g., checking for valid variable names).
+        try {
+            Integer.parseInt(token);  // Try to parse the token as an integer
+            return true;
+        } catch (NumberFormatException e) {
+            return isVariable(token);  // If it's not an integer, check if it's a variable
+        }
+    }
+
+    private static boolean isVariable(String token) {
+        // Check if the token is a valid variable name.
+        // This is a very simple check; you may want to expand it based on your language's rules.
+        return token.matches("[a-zA-Z_][a-zA-Z0-9_]*");  // A variable name can start with a letter or underscore and may contain letters, numbers, or underscores.
+    }
+
+    public static List<String> processWhileBlock(String[] tokens) {
+        // Assume block starts after the closing parenthesis of the while loop
+        List<String> blockTokens = new ArrayList<>();
+        boolean inBlock = false;
+
+        // Iterate through tokens and capture everything after the 'while' loop condition
+        for (int i = 0; i < tokens.length; i++) {
+            if (tokens[i].equals("{")) {
+                inBlock = true;  // Start of the block
+            } else if (tokens[i].equals("}")) {
+                inBlock = false;  // End of the block
+                break;  // Exit after the block ends
+            }
+
+            // Add tokens inside the block
+            if (inBlock) {
+                blockTokens.add(tokens[i]);
+            }
+        }
+
+        return blockTokens;
+    }
+
+    public static int evaluateExpression(String expression) {
+        // Implement logic to evaluate expressions like "a + 1", "5 * 3", etc.
+        // This is a placeholder, you need to evaluate the expression properly based on your needs
+        return Integer.parseInt(expression);  // Simplified evaluation for demonstration
+    }
+
+    public static boolean evaluateCondition(String condition) {
+        // Example: "a < 5"
+        String[] parts = condition.split("<");
+        String variable = parts[0].trim();  // "a"
+        int comparisonValue = Integer.parseInt(parts[1].trim());  // "5"
+
+        // Retrieve the current value of 'a' from the symbol table
+        Integer variableValue = symbolTable.getValue(variable);
+
+        // Compare and return the result of the condition (e.g., a < 5)
+        return variableValue != null && variableValue < comparisonValue;
+    }
 }

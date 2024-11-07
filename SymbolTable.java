@@ -82,7 +82,8 @@ public class SymbolTable {
     // Adds a variable to the symbol table
     public void addVariable(String name, int value) {
         if(!table.containsKey(name)){
-            table.put(name, new Variable(name, nextId++));
+//            table.put(name, new Variable(name, nextId++));
+            put(name, value);
         }
     }
 
@@ -152,6 +153,11 @@ public class SymbolTable {
         }else{
             System.out.println("Error: Variable not found");
         }
+    }
+
+    public void put(String variableName, int value){
+        Variable variable = new Variable(variableName, value, nextId++);
+        table.put(variableName, variable);
     }
 
     /**********************************************************
