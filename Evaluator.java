@@ -236,4 +236,21 @@ public class Evaluator {
         return symbolTable.containsVariable(token);  // Assuming symbolTable is a map of variable names to values
     }
 
+    public static int evaluateExpression(String expression) {
+        // This method evaluates simple expressions like "a + 1" and returns the result.
+        // Split by operators and evaluate the expression (assumes a basic format like "a + 1")
+
+        String[] parts = expression.split("[+-]");  // Split by addition or subtraction operators
+        int leftValue = symbolTable.getValue(parts[0].trim());  // Get the left operand value (from symbol table)
+        int rightValue = Integer.parseInt(parts[1].trim());    // Get the right operand value (literal)
+
+        if (expression.contains("+")) {
+            return leftValue + rightValue;  // Perform addition
+        } else if (expression.contains("-")) {
+            return leftValue - rightValue;  // Perform subtraction
+        }
+
+        return leftValue; // If no operator found, return the left operand (i.e., variable)
+    }
+
 }

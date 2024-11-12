@@ -92,6 +92,15 @@ public class Interpreter {
             return;
         }
 
+        // Check for the 'while' loop statement
+        if (tokens[0].equals("while")) {
+            // Assuming that the condition for the while loop is between 'while' and '{' (simple case)
+            String condition = getConditionFromWhile(tokens);  // Get the condition from the tokens
+            List<String> blockTokens = getBlockTokens(tokens);  // Get the tokens for the block inside the while loop
+            handleWhileLoop(condition, blockTokens);  // Call the handleWhileLoop method
+            return;
+        }
+
         // Handle variable declaration or assignment, input, print, etc.
         if (tokens.length >= 3 && tokens[tokens.length - 1].equals(";")) {
             if (tokens[0].equals(KEYWORD_INTEGER)) {
@@ -361,30 +370,82 @@ public class Interpreter {
     }
 
     public static void handleWhileLoop(String condition, List<String> blockTokens) throws Exception {
+        // Create an instance of Tokenization (if it's not already available)
+        Tokenization tokenizer = new Tokenization();
+
+        // Tokenize the condition using your Tokenization class, which returns a String[]
+        String[] conditionTokensArray = tokenizer.tokenize(condition); // Assuming tokenize returns a String[]
+
+        // Convert the String[] to a List<String>
+        List<String> conditionTokens = new ArrayList<>(Arrays.asList(conditionTokensArray));
+
+        // Create a list of token IDs for the condition
+        List<Integer> conditionTokenIDs = new ArrayList<>();
+
+        // Get the token ID for each token in the condition
+        for (String token : conditionTokens) {
+            int tokenID = getTokenID(token);  // Get the token ID for the token
+            conditionTokenIDs.add(tokenID);   // Add the token ID to the list
+        }
+
         // Loop until the condition evaluates to false
-        while (evaluateCondition(condition)) {
+        while (evaluator.evaluateCondition(conditionTokens, conditionTokenIDs)) {
             System.out.println("Condition evaluated to true, executing block...");
 
-            // Process each statement within the block
-            for (String statement : blockTokens) {
-                statement = statement.trim();  // Trim any excess whitespace
-                if (!statement.isEmpty()) {
-                    System.out.println("Executing statement: " + statement + ";");
-                    // Add the semicolon back to treat it as a full statement
-                    String[] tokens = (statement + ";").trim().split("\\s+");  // Split with semicolon
-                    executeCommand(tokens);  // Execute each statement inside the block
+            // Process the block of code (now as complete statements)
+            StringBuilder statementBuilder = new StringBuilder();  // StringBuilder to concatenate tokens
+
+            for (String token : blockTokens) {
+                token = token.trim();  // Trim excess whitespace
+
+                if (!token.isEmpty()) {
+                    statementBuilder.append(token).append(" ");  // Concatenate tokens with space
+
+                    // If the token is a semicolon, execute the full statement
+                    if (token.equals(";")) {
+                        String fullStatement = statementBuilder.toString().trim();  // Build the full statement
+                        System.out.println("Executing statement: " + fullStatement + ";");
+
+                        // Ensure the statement ends with a semicolon
+                        if (!fullStatement.endsWith(";")) {
+                            fullStatement += ";";
+                        }
+
+                        // Pass the complete statement to executeCommand
+                        executeCommand(new String[]{fullStatement});
+
+                        // Reset the StringBuilder for the next statement
+                        statementBuilder.setLength(0);
+
+                        if (fullStatement.contains("=")) {
+                            String[] parts = fullStatement.split("=");  // Split by '='
+                            String variableName = parts[0].trim();
+                            String expression = parts[1].trim().replace(";", "");  // Extract the expression
+
+                            // Evaluate the right-hand side expression
+                            int newValue = evaluator.evaluateExpression(expression);  // Evaluate expression like "a + 1"
+
+                            // Update the symbol table with the new value
+                            symbolTable.updateValue(variableName, newValue);
+                        }
+                    }
                 }
             }
 
             // After executing the block, check the condition again
             System.out.println("Re-evaluating condition...");
-            if (!evaluateCondition(condition)) {
-                System.out.println("Condition evaluated to false, exiting loop.");
-                break;  // Exit the loop if the condition is false
+
+            // Re-tokenize and re-evaluate the condition
+            conditionTokensArray = tokenizer.tokenize(condition); // Re-tokenize the condition
+            conditionTokens.clear();
+            conditionTokens.addAll(Arrays.asList(conditionTokensArray)); // Update the List with the new tokens
+
+            conditionTokenIDs.clear();
+            for (String token : conditionTokens) {
+                conditionTokenIDs.add(getTokenID(token)); // Update the token IDs
             }
         }
     }
-
 
     public static void handleIfElse(List<String> tokens, List<Integer> tokenIDs) throws Exception {
         // Find the index of the 'if' token
@@ -630,7 +691,7 @@ public class Interpreter {
                     if (firstToken.matches("[a-zA-Z_][a-zA-Z0-9_]*") && elseTokens.get(1).equals("=")) {
                         // It's an assignment: "x = x + 5"
                         String leftOperand = firstToken; // e.g., "x"
-                        String operator = ifTokens.get(1); // "="
+                        String operator = elseTokens.get(1); // "="
                         String rightOperand = String.join(" ", elseTokens.subList(2, elseTokens.size() - 1)); // e.g., "x + 5"
                         System.out.println("Processing math operation: " + leftOperand + " " + operator + " " + rightOperand);
 
@@ -710,45 +771,33 @@ public class Interpreter {
         }
     }
 
-    public static List<String> processWhileBlock(String[] tokens) {
-        // Assume block starts after the closing parenthesis of the while loop
-        List<String> blockTokens = new ArrayList<>();
-        boolean inBlock = false;
+    private static String getConditionFromWhile(String[] tokens) {
+        // The condition is typically between "while" and the first "{"
+        int openParenIndex = Arrays.asList(tokens).indexOf("(");  // Find '('
+        int closeParenIndex = Arrays.asList(tokens).indexOf(")");  // Find ')'
 
-        // Iterate through tokens and capture everything after the 'while' loop condition
-        for (int i = 0; i < tokens.length; i++) {
-            if (tokens[i].equals("{")) {
-                inBlock = true;  // Start of the block
-            } else if (tokens[i].equals("}")) {
-                inBlock = false;  // End of the block
-                break;  // Exit after the block ends
+        // Extract the condition from the tokens between '(' and ')'
+        if (openParenIndex != -1 && closeParenIndex != -1 && closeParenIndex > openParenIndex) {
+            StringBuilder condition = new StringBuilder();
+            for (int i = openParenIndex + 1; i < closeParenIndex; i++) {
+                condition.append(tokens[i]).append(" ");  // Concatenate tokens inside parentheses
             }
+            return condition.toString().trim();  // Return condition as a string
+        }
+        return "";  // Return an empty string if no valid condition
+    }
 
-            // Add tokens inside the block
-            if (inBlock) {
-                blockTokens.add(tokens[i]);
+    private static List<String> getBlockTokens(String[] tokens) {
+        List<String> blockTokens = new ArrayList<>();
+        int openBraceIndex = Arrays.asList(tokens).indexOf("{");  // Find '{'
+        int closeBraceIndex = Arrays.asList(tokens).indexOf("}");  // Find '}'
+
+        if (openBraceIndex != -1 && closeBraceIndex != -1 && closeBraceIndex > openBraceIndex) {
+            for (int i = openBraceIndex + 1; i < closeBraceIndex; i++) {
+                blockTokens.add(tokens[i]);  // Add tokens inside the braces
             }
         }
-
         return blockTokens;
     }
 
-    public static int evaluateExpression(String expression) {
-        // Implement logic to evaluate expressions like "a + 1", "5 * 3", etc.
-        // This is a placeholder, you need to evaluate the expression properly based on your needs
-        return Integer.parseInt(expression);  // Simplified evaluation for demonstration
-    }
-
-    public static boolean evaluateCondition(String condition) {
-        // Example: "a < 5"
-        String[] parts = condition.split("<");
-        String variable = parts[0].trim();  // "a"
-        int comparisonValue = Integer.parseInt(parts[1].trim());  // "5"
-
-        // Retrieve the current value of 'a' from the symbol table
-        Integer variableValue = symbolTable.getValue(variable);
-
-        // Compare and return the result of the condition (e.g., a < 5)
-        return variableValue != null && variableValue < comparisonValue;
-    }
 }
