@@ -87,9 +87,5 @@ public enum CodeGenerator {
      * DIV: Represents a division operation between two       *
      *      values.                                           *
      **********************************************************/
-    DIV,
-    BEQ,
-    BNE,
-    BLT,
-    BGT
+    DIV
 }

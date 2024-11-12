@@ -26,6 +26,7 @@ public class Evaluator {
             "+", 1, "-", 1, "*", 2, "/", 2, "^", 3
     );
     private static SymbolTable symbolTable;
+    private static LiteralTable literalTable;
 
     /**********************************************************
      * CONSTRUCTOR: Evaluator(SymbolTable symbolTable)        *
@@ -34,8 +35,9 @@ public class Evaluator {
      * PARAMETERS: SymbolTable symbolTable - the symbol table *
      *              for accessing variables.                  *
      **********************************************************/
-    public Evaluator(SymbolTable symbolTable) {
+    public Evaluator(SymbolTable symbolTable, LiteralTable literalTable) {
         this.symbolTable = symbolTable;
+        this.literalTable = literalTable;
     }
 
     /**********************************************************
@@ -84,7 +86,10 @@ public class Evaluator {
             values.push(applyOperation(ops.pop(), values.pop(), values.pop()));
         }
 
-        return values.pop();
+        int result = values.pop();
+        literalTable.addLiteral(result);
+
+        return result;
     }
 
     /**********************************************************
@@ -188,6 +193,8 @@ public class Evaluator {
 
         int leftValue = getValue(leftOperand);   // Get value from symbol table or literal
         int rightValue = getValue(rightOperand);
+
+        System.out.println("Left Value: " + leftValue + ", Right Value: " + rightValue);
 
         switch (operator) {
             case "==":
