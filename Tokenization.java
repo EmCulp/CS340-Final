@@ -3,7 +3,7 @@
  * *
  * PROGRAMMER: Emily Culp*
  * COURSE: CS340 - Programming Language Design*
- * DATE: 10/29/2024 *
+ * DATE: 11/12/2024 *
  * REQUIREMENT: Tokenization for the interpreter *
  * *
  * DESCRIPTION: *
@@ -51,6 +51,20 @@ public class Tokenization {
         System.out.println("Tokens: " + Arrays.toString(tokens.toArray()));
         return tokens.toArray(new String[0]);
     }
+
+    /**********************************************************
+     * METHOD: getTokenType(String token)                       *
+     * DESCRIPTION: Determines the type of a given token.       *
+     *              It checks if the token is a literal,        *
+     *              operator, keyword, or identifier. The method *
+     *              uses regular expressions to classify the    *
+     *              token into one of these categories.         *
+     * PARAMETERS: String token - The token whose type is to be determined. *
+     * RETURN VALUE: String - A string representing the type of *
+     *              the token. Possible return values include:  *
+     *              "Literal", "Operator", "Keyword", "Identifier".  *
+     * EXCEPTIONS: None                                           *
+     **********************************************************/
 
     // Helper method to identify token types (keywords, literals, operators, etc.)
     private static String getTokenType(String token) {

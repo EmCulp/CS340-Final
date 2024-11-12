@@ -3,7 +3,7 @@
  *                                                                 *
  * PROGRAMMER: Emily Culp                                          *
  * COURSE: CS340 - Programming Language Design                     *
- * DATE: 10/29/2024                                                *
+ * DATE: 11/12/2024                                                *
  * REQUIREMENT: Store variable details for the interpreter         *
  *                                                                 *
  * DESCRIPTION:                                                    *
@@ -38,6 +38,18 @@ public class Variable {
         this.name = name;
         this.id = id;
     }
+
+    /**********************************************************
+     * METHOD: Variable(String name, int value, int id)          *
+     * DESCRIPTION: Constructor for creating a new Variable      *
+     *              object with a specified name, value, and ID. *
+     * PARAMETERS:                                               *
+     *   String name - The name of the variable.                 *
+     *   int value - The initial value of the variable.          *
+     *   int id - A unique identifier for the variable.          *
+     * RETURN VALUE: None (This is a constructor method)         *
+     * EXCEPTIONS: None                                          *
+     **********************************************************/
 
     public Variable(String name, int value, int id) {
         this.name = name;

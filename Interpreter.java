@@ -1,3 +1,29 @@
+/*******************************************************************
+ * Interpreter Class                                               *
+ *                                                                 *
+ * PROGRAMMER: Emily Culp                                          *
+ * COURSE: CS340 - Programming Language Design                     *
+ * DATE: 11/12/2024                                                *
+ * REQUIREMENT: Implements an interpreter for basic language       *
+ *              constructs such as variable declarations,         *
+ *              assignments, input, print, if-else, and while.     *
+ *                                                                 *
+ * DESCRIPTION:                                                    *
+ * The Interpreter class is responsible for interpreting and       *
+ * executing commands based on a simple programming language. It   *
+ * handles parsing, tokenization, execution of statements, and     *
+ * interacting with symbol and literal tables. The interpreter    *
+ * supports basic constructs like variable declaration, assignment,*
+ * input, print, conditional statements (if-else), and loops. It  *
+ * ensures that valid commands are executed and provides error    *
+ * messages for invalid syntax.                                   *
+ *                                                                 *
+ * COPYRIGHT: This code is copyright (C) 2024 Emily Culp and Dean  *
+ * Zeller.                                                         *
+ *                                                                 *
+ * CREDITS: This code was written with the help of ChatGPT.        *
+ ******************************************************************/
+
 import java.util.*;
 
 public class Interpreter {
@@ -36,7 +62,6 @@ public class Interpreter {
         put(">=", 216);
     }};
 
-
     private static SymbolTable symbolTable;
     private static LiteralTable literalTable;
     private static Evaluator evaluator;
@@ -50,6 +75,21 @@ public class Interpreter {
         evaluator = new Evaluator(symbolTable, literalTable);
         tokenizer = new Tokenization();
     }
+
+    /**********************************************************
+     * METHOD: main(String[] args)                              *
+     * DESCRIPTION: Main method to run the interpreter, allowing *
+     *              users to input commands and execute them.   *
+     *              The method tokenizes input commands and     *
+     *              delegates execution to the appropriate      *
+     *              method (e.g., handling assignments, print,  *
+     *              input, etc.).                               *
+     * PARAMETERS: String[] args - Command-line arguments (not *
+     *              used in this implementation).               *
+     * RETURN VALUE: None                                        *
+     * EXCEPTIONS: Throws an Exception for invalid input or    *
+     *             command errors.                               *
+     **********************************************************/
 
     public static void main(String[] args) throws Exception {
 
@@ -77,6 +117,21 @@ public class Interpreter {
         symbolTable.printTable(); // Print the symbol table at the end
         literalTable.printTable();
     }
+
+    /**********************************************************
+     * METHOD: executeCommand(String[] tokens)                   *
+     * DESCRIPTION: Executes individual statements by processing *
+     *              the tokens and determining the appropriate  *
+     *              action based on the statement type. Handles  *
+     *              variable declaration, assignment, input,    *
+     *              print, if-else, and while loop statements.  *
+     * PARAMETERS: String[] tokens - An array of tokens that    *
+     *              represent a command or statement to execute.*
+     * RETURN VALUE: None                                         *
+     * EXCEPTIONS: Throws an Exception for invalid commands or  *
+     *             syntax errors in the tokens.                  *
+     **********************************************************/
+
     public static void executeCommand(String[] tokens) throws Exception {
         // This method processes individual statements (e.g., assignments, print, etc.)
         List<String> tokenID = Arrays.asList(tokens);
@@ -125,6 +180,19 @@ public class Interpreter {
         }
     }
 
+    /**********************************************************
+     * METHOD: handleVariableDeclaration(String[] tokens)     *
+     * DESCRIPTION: Handles variable declaration statements,   *
+     *              such as "integer x;", by adding the         *
+     *              variable to the symbol table with a default *
+     *              value of 0. Also adds a corresponding literal*
+     *              to the literal table with the value 0.      *
+     *              Prints TokenIDs and code generation details.*
+     * PARAMETERS: String[] tokens - An array of tokens representing*
+     *              the variable declaration statement.        *
+     * RETURN VALUE: None                                       *
+     * EXCEPTIONS: Throws an Exception for invalid declarations.*
+     **********************************************************/
 
     //only works with something like "integer x;"
     private static void handleVariableDeclaration(String[] tokens) {
@@ -154,6 +222,21 @@ public class Interpreter {
             System.out.println("Syntax error: Invalid variable declaration.");
         }
     }
+
+
+    /**********************************************************
+     * METHOD: handleInput(String[] tokens)                    *
+     * DESCRIPTION: Handles the input statement, such as       *
+     *              "input(x);". It prompts the user for input,*
+     *              assigns the value to the specified variable,*
+     *              and prints TokenIDs and generated code.    *
+     * PARAMETERS: String[] tokens - An array of tokens        *
+     *              representing the input statement.          *
+     * RETURN VALUE: None                                      *
+     * EXCEPTIONS: Throws an Exception for invalid input       *
+     *             statements or undeclared variables.         *
+     **********************************************************/
+
     private static void handleInput(String[] tokens) {
         System.out.println("Debug: Tokens received -> " + String.join(" ", tokens));
 
@@ -187,6 +270,20 @@ public class Interpreter {
                 " " + variableID + " " + TOKEN_IDS.get(")") + " " + TOKEN_IDS.get(";"));
         System.out.println(CodeGenerator.START_DEFINE + " " +  CodeGenerator.END_DEFINE + " " + CodeGenerator.NO_OP);
     }
+
+    /**********************************************************
+     * METHOD: handlePrint(String[] tokens)                    *
+     * DESCRIPTION: Handles the print statement, such as       *
+     *              "print(x, y, 3);". It checks the validity  *
+     *              of the syntax, processes each element      *
+     *              inside the parentheses, and prints         *
+     *              TokenIDs and corresponding values.         *
+     * PARAMETERS: String[] tokens - An array of tokens        *
+     *              representing the print statement.          *
+     * RETURN VALUE: None                                      *
+     * EXCEPTIONS: Throws an Exception for invalid print       *
+     *             statements or undeclared variables.         *
+     **********************************************************/
 
     private static void handlePrint(String[] tokens) {
         System.out.println("Tokens: " + String.join(" ", tokens) + " ;");
@@ -270,6 +367,19 @@ public class Interpreter {
         System.out.println(CodeGenerator.STORE + " output"); // Simulate storing the print output
     }
 
+    /**********************************************************
+     * METHOD: handleAssignment(String[] tokens)
+     * DESCRIPTION: Handles assignment commands like "x = 10;". *
+     *              It checks if the variable is declared and   *
+     *              assigns the value to the corresponding      *
+     *              symbol table entry. Also handles invalid    *
+     *              syntax or undeclared variables.             *
+     * PARAMETERS: String[] tokens - An array of tokens         *
+     *              representing the assignment command.        *
+     * RETURN VALUE: None                                       *
+     * EXCEPTIONS: Throws an Exception for invalid assignments  *
+     *             or undeclared variables.                    *
+     **********************************************************/
     // Handle assignment logic
     //works with "integer a = 15;"
     // Assume `evaluator` is capable of handling expressions properly with parentheses
@@ -369,6 +479,18 @@ public class Interpreter {
         }
     }
 
+    /**********************************************************
+     * METHOD: handleWhileLoop(String[] tokens)
+     * DESCRIPTION: Handles while loop commands like "while (condition) { ... }".
+     *              It evaluates the condition and, if true, executes the block of
+     *              code inside the loop. The loop continues until the condition
+     *              evaluates to false.
+     * PARAMETERS: String[] tokens - An array of tokens representing the while loop.
+     * RETURN VALUE: None
+     * EXCEPTIONS: Throws an Exception if the while loop syntax is invalid or
+     *             if there is an error evaluating the condition.
+     **********************************************************/
+
     public static void handleWhileLoop(String condition, List<String> blockTokens) throws Exception {
         // Create an instance of Tokenization (if it's not already available)
         Tokenization tokenizer = new Tokenization();
@@ -446,6 +568,18 @@ public class Interpreter {
             }
         }
     }
+
+    /**********************************************************
+     * METHOD: handleIfElse(String[] tokens)
+     * DESCRIPTION: Handles if-else commands like "if (condition) { ... } else { ... }".
+     *              It evaluates the condition and, if true, executes the block of
+     *              code inside the if statement; otherwise, it executes the code
+     *              inside the else block. The else block is optional.
+     * PARAMETERS: String[] tokens - An array of tokens representing the if-else statement.
+     * RETURN VALUE: None
+     * EXCEPTIONS: Throws an Exception if the if-else syntax is invalid or
+     *             if there is an error evaluating the condition.
+     **********************************************************/
 
     public static void handleIfElse(List<String> tokens, List<Integer> tokenIDs) throws Exception {
         // Find the index of the 'if' token
@@ -708,6 +842,18 @@ public class Interpreter {
         }
     }
 
+    /**********************************************************
+     * METHOD: getTokenID(String token)
+     * DESCRIPTION: This method checks the type of a given token and returns the corresponding
+     *              token ID. The token can be a predefined keyword/operator, a variable, or
+     *              a numeric literal. It checks each type in sequence and retrieves the
+     *              appropriate token ID. It also handles printing the token and its ID
+     *              for debugging purposes.
+     * PARAMETERS: String token - The token whose ID is being retrieved.
+     * RETURN VALUE: int - The token ID associated with the token, or -1 if the token is not found.
+     * EXCEPTIONS: None
+     **********************************************************/
+
     private static int getTokenID(String token) {
         // Check if the token is a predefined keyword or operator (like "if", "else", "==", etc.)
         if (TOKEN_IDS.containsKey(token)) {
@@ -746,6 +892,16 @@ public class Interpreter {
         return -1;
     }
 
+    /**********************************************************
+     * METHOD: isNumericLiteral(String token)
+     * DESCRIPTION: This helper method checks if a given token is a numeric literal. It tries
+     *              to parse the token into an integer. If successful, it returns true; otherwise,
+     *              it returns false.
+     * PARAMETERS: String token - The token to check.
+     * RETURN VALUE: boolean - True if the token is a numeric literal, false otherwise.
+     * EXCEPTIONS: None
+     **********************************************************/
+
     // Helper method to check if a token is a numeric literal
     private static boolean isNumericLiteral(String token) {
         try {
@@ -755,6 +911,20 @@ public class Interpreter {
             return false;
         }
     }
+
+    /**********************************************************
+     * METHOD: validateIfElseStructure(List<String> tokens, List<Integer> tokenIDs)
+     * DESCRIPTION: This method validates the structure of an "if-else" block. It checks for the presence
+     *              of both an "if" statement and an optional "else" statement. If an "else" statement exists,
+     *              it must appear after the "if" statement. If these conditions are violated, it throws an
+     *              IllegalArgumentException.
+     * PARAMETERS: List<String> tokens - The list of tokens to check for the structure.
+     *             List<Integer> tokenIDs - The list of token IDs (not used in the method, but included
+     *             for method signature consistency).
+     * RETURN VALUE: None
+     * EXCEPTIONS: Throws IllegalArgumentException if the structure is invalid, such as if "if" is
+     *             missing or "else" appears before "if".
+     **********************************************************/
 
     public static void validateIfElseStructure(List<String> tokens, List<Integer> tokenIDs) {
         int ifIndex = tokens.indexOf("if");
@@ -771,6 +941,17 @@ public class Interpreter {
         }
     }
 
+    /**********************************************************
+     * METHOD: getConditionFromWhile(String[] tokens)
+     * DESCRIPTION: This method extracts the condition from a "while" loop, which is assumed to be
+     *              enclosed between parentheses. The condition is expected to be between the "while" keyword
+     *              and the first '{'. The method returns the condition as a string. If no valid condition
+     *              is found, it returns an empty string.
+     * PARAMETERS: String[] tokens - The array of tokens from which to extract the condition.
+     * RETURN VALUE: String - The condition in string form, or an empty string if no valid condition is found.
+     * EXCEPTIONS: None
+     **********************************************************/
+
     private static String getConditionFromWhile(String[] tokens) {
         // The condition is typically between "while" and the first "{"
         int openParenIndex = Arrays.asList(tokens).indexOf("(");  // Find '('
@@ -786,6 +967,17 @@ public class Interpreter {
         }
         return "";  // Return an empty string if no valid condition
     }
+
+    /**********************************************************
+     * METHOD: getBlockTokens(String[] tokens)
+     * DESCRIPTION: This method extracts the block of code inside curly braces ("{" and "}"). The block is
+     *              assumed to begin after the opening brace and end before the closing brace. The method
+     *              returns a list of tokens representing the block inside the braces. If no valid block is
+     *              found, it returns an empty list.
+     * PARAMETERS: String[] tokens - The array of tokens to extract the block from.
+     * RETURN VALUE: List<String> - A list of tokens inside the braces, or an empty list if no block is found.
+     * EXCEPTIONS: None
+     **********************************************************/
 
     private static List<String> getBlockTokens(String[] tokens) {
         List<String> blockTokens = new ArrayList<>();

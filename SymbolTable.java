@@ -3,7 +3,7 @@
  *                                                                 *
  * PROGRAMMER: Emily Culp                                           *
  * COURSE: CS340 - Programming Language Design                      *
- * DATE: 10/29/2024                                                 *
+ * DATE: 11/12/2024                                                 *
  * REQUIREMENT: Manage variables for the interpreter                *
  *                                                                 *
  * DESCRIPTION:                                                     *

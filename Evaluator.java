@@ -3,7 +3,7 @@
  *                                                                  *
  * PROGRAMMER: Emily Culp                                           *
  * COURSE: CS340 - Programming Language Design                      *
- * DATE: 10/29/2024                                                 *
+ * DATE: 11/12/2024                                                 *
  * REQUIREMENT: Expression Evaluation for Interpreter               *
  *                                                                  *
  * DESCRIPTION:                                                     *
@@ -185,6 +185,19 @@ public class Evaluator {
         }
     }
 
+    /**********************************************************
+     * METHOD: evaluateCondition(List<String> tokens, List<Integer> tokenIDs)*
+     * DESCRIPTION: Evaluates a condition (e.g., equality, inequality, comparison)*
+     *              based on the provided tokens. The condition can check for equality, *
+     *              inequality, and relational operators such as <, >, <=, >=.          *
+     * PARAMETERS: List<String> tokens - A list of tokens representing the condition,   *
+     *             where the first token is the left operand, the second token is the   *
+     *             operator, and the third token is the right operand.                 *
+     *             List<Integer> tokenIDs - A list of token IDs (not used in this method).*
+     * RETURN VALUE: boolean - Returns true if the condition is met, otherwise false.   *
+     * EXCEPTIONS: None                                                      *
+     **********************************************************/
+
     public boolean evaluateCondition(List<String> tokens, List<Integer> tokenIDs) {
         // Assume the tokens are in the form [a, ==, 0] or [a, !=, b]
         String leftOperand = tokens.get(0);
@@ -214,6 +227,18 @@ public class Evaluator {
         }
     }
 
+    /**********************************************************
+     * METHOD: getValue(String token)                            *
+     * DESCRIPTION: Retrieves the value of a token. If the token  *
+     *              represents a variable, its value is fetched  *
+     *              from the symbol table. If it represents a     *
+     *              literal integer, the integer value is parsed. *
+     * PARAMETERS: String token - The token to retrieve the value of. *
+     * RETURN VALUE: int - The value of the token, either from   *
+     *              the symbol table or as a parsed literal integer. *
+     * EXCEPTIONS: Throws a NumberFormatException if the token cannot be parsed as a integer. *
+     **********************************************************/
+
     // Helper method to get the value of a token (either from the symbol table or directly as a literal value)
     private static int getValue(String token) {
         // Check if the token is a variable (i.e., it exists in the symbol table)
@@ -231,10 +256,29 @@ public class Evaluator {
         }
     }
 
+    /**********************************************************
+     * METHOD: isVariable(String token)                          *
+     * DESCRIPTION: Checks if the token is a variable by searching*
+     *              the symbol table for its existence.          *
+     * PARAMETERS: String token - The token to check for variable status. *
+     * RETURN VALUE: boolean - Returns true if the token is a variable, false otherwise.  *
+     * EXCEPTIONS: None                                           *
+     **********************************************************/
+
     // Method to check if the token is a variable (you can modify this to check based on your symbol table)
     private static boolean isVariable(String token) {
         return symbolTable.containsVariable(token);  // Assuming symbolTable is a map of variable names to values
     }
+
+    /**********************************************************
+     * METHOD: evaluateExpression(String expression)              *
+     * DESCRIPTION: Evaluates a simple mathematical expression   *
+     *              consisting of two operands and a single operator. *
+     * PARAMETERS: String expression - The expression to evaluate, *
+     *             in the form "a + 1" or "a - 1".                 *
+     * RETURN VALUE: int - The result of the evaluated expression.  *
+     * EXCEPTIONS: Throws a NumberFormatException if a non-numeric value is encountered. *
+     **********************************************************/
 
     public static int evaluateExpression(String expression) {
         // This method evaluates simple expressions like "a + 1" and returns the result.

@@ -3,7 +3,7 @@
  *                                                                 *
  * PROGRAMMER: Emily Culp                                           *
  * COURSE: CS340 - Programming Language Design                      *
- * DATE: 10/17/2024                                                 *
+ * DATE: 11/12/2024                                                 *
  * REQUIREMENT: Manage literals for the interpreter                 *
  *                                                                 *
  * DESCRIPTION:                                                     *
@@ -81,10 +81,6 @@ public class LiteralTable{
             }
         }
         return -1; // Return -1 if the literal is not found
-    }
-
-    public boolean containsLiteral(String literal){
-        return getLiteralID(literal) != -1;
     }
 
     /**********************************************************
