@@ -27,6 +27,11 @@ public class Evaluator {
     );
     private static SymbolTable symbolTable;
     private static LiteralTable literalTable;
+    private MIPSGenerator mipsGenerator;
+
+    public Evaluator(MIPSGenerator mipsGenerator){
+        this.mipsGenerator = mipsGenerator;
+    }
 
     /**********************************************************
      * CONSTRUCTOR: Evaluator(SymbolTable symbolTable)        *
@@ -176,7 +181,7 @@ public class Evaluator {
      *              otherwise false.                          *
      **********************************************************/
 
-    private boolean isInteger(String token) {
+    public boolean isInteger(String token) {
         try {
             Integer.parseInt(token);
             return true;
@@ -266,7 +271,7 @@ public class Evaluator {
      **********************************************************/
 
     // Method to check if the token is a variable (you can modify this to check based on your symbol table)
-    private static boolean isVariable(String token) {
+    static boolean isVariable(String token) {
         return symbolTable.containsVariable(token);  // Assuming symbolTable is a map of variable names to values
     }
 
