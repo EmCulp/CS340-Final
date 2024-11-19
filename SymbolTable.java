@@ -34,16 +34,22 @@ public class SymbolTable {
      **********************************************************/
 
     private static class Entry{
+        private final int id;
         String name;
         String type;
         Object value;
         String scope;
 
-        public Entry(String name, String type, Object value, String scope){
+        public Entry(int id, String name, String type, Object value, String scope){
+            this.id = id;
             this.name = name;
             this.type = type;
             this.value = value;
             this.scope = scope;
+        }
+
+        public int getId(){
+            return id;
         }
 
         public String getName(){
@@ -86,13 +92,13 @@ public class SymbolTable {
     }
 
     public void addEntry(String name, String type, Object value, String scope){
-        table.put(nextId, new Entry(name, type, value, scope));
+        table.put(nextId, new Entry(nextId, name, type, value, scope));
         nextId++;
     }
 
     public void addBoolean(String variableName, boolean value){
         int id = nextId++;
-        Entry entry = new Entry(variableName, "boolean", value, "global");
+        Entry entry = new Entry(id, variableName, "boolean", value, "global");
         table.put(id, entry);
         System.out.println("Added " +variableName+ " to Symbol Table with ID " +id);
     }
@@ -108,7 +114,7 @@ public class SymbolTable {
 
     public void addOrUpdateDouble(String variableName, double value){
         int id = nextId++;
-        table.put(id, new Entry(variableName, "double", value, "global"));
+        table.put(id, new Entry(id, variableName, "double", value, "global"));
         System.out.println("Added double variable: " +variableName+ " with value: " +value);
     }
 
@@ -134,7 +140,7 @@ public class SymbolTable {
     public Integer getIdByName(String name){
         for(Map.Entry<Integer, Entry> entry : table.entrySet()){
             if(entry.getValue().getName().equals(name)){
-                return entry.getKey();
+                return entry.getValue().getId();
             }
         }
         return null;    //not found
@@ -174,19 +180,21 @@ public class SymbolTable {
 
     // Checks if a variable exists in the symbol table
     public boolean containsVariable(String name) {
-        System.out.println("Checking for variable in symbol table: " +name);
-        return table.containsKey(name);
+        for(Entry entry : table.values()){
+            if(entry.getName().equals(name)){
+                return true;
+            }
+        }
+        return false;
     }
 
     public String getTypeByName(String variableName){
-        Entry entry = table.get(variableName);
-
-        if(entry != null){
-            return entry.getType();
-        }else{
-            System.out.println("Error: Variable '" +variableName+ "' not found in the symbol table");
-            return null;
+        for(Map.Entry<Integer, Entry> entry : table.entrySet()){
+            if(entry.getValue().getName().equals(variableName)){
+                return entry.getValue().getType();
+            }
         }
+        return null;
     }
 
     /**********************************************************

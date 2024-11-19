@@ -217,8 +217,8 @@ public class Compiler {
                 // Add the double literal to the literal table if not already added
                 addDoubleLiteralIfNotExist(0.0);  // Default to 0.0
                 // Add the double variable with default value to the symbol table
-                symbolTable.addOrUpdateDouble(variableName, 0.0);  // Default value
-                System.out.println("Not in symbol table... Now added to Symbol Table: " + variableName);
+                symbolTable.addEntry(variableName, "double", 0.0, "global");  // Default value
+//                System.out.println("Not in symbol table... Now added to Symbol Table: " + variableName);
             } else {
                 System.out.println("Error: Variable " + variableName + " is already declared.");
             }
@@ -239,7 +239,7 @@ public class Compiler {
                 // Add the double literal to the literal table if not already added
                 addDoubleLiteralIfNotExist(value);  // Add the literal value
                 // Add the double variable with the parsed value to the symbol table
-                symbolTable.addOrUpdateDouble(variableName, value);  // Add to symbol table with value
+                symbolTable.addEntry(variableName, "double", value, "global");  // Add to symbol table with value
                 System.out.println("Added to Symbol Table with value: " + variableName + " = " + value);
             } else {
                 System.out.println("Error: Variable " + variableName + " is already declared.");
@@ -266,7 +266,7 @@ public class Compiler {
             if (!symbolTable.containsVariable(variableName)) {
                 // Add the boolean variable with default value
                 addBooleanLiteralIfNotExist("false");
-                symbolTable.addOrUpdateBoolean(variableName, false);  // Default to false
+                symbolTable.addEntry(variableName, "boolean", false, "global");  // Default to false
                 System.out.println("Not in symbol table... Now added to Symbol Table: " + variableName);
             } else {
                 System.out.println("Error: Variable " + variableName + " is already declared.");
@@ -279,7 +279,7 @@ public class Compiler {
             if (!symbolTable.containsVariable(variableName)) {
                 // Add the boolean literal to literal table if not already added
                 addBooleanLiteralIfNotExist(value ? "true" : "false");
-                symbolTable.addOrUpdateBoolean(variableName, value);  // Add boolean value to symbol table
+                symbolTable.addEntry(variableName, "boolean", value, "global");  // Add boolean value to symbol table
                 System.out.println("Added to Symbol Table with value: " + variableName + " = " + value);
             } else {
                 System.out.println("Error: Variable " + variableName + " is already declared.");
@@ -353,7 +353,9 @@ public class Compiler {
         }
 
         String variableName = tokens[2]; // Extract the variable name
+//        System.out.println("VariableName: " +variableName);
         Integer variableID = symbolTable.getIdByName(variableName); // Fetch variable ID
+//        System.out.println("ID: " +variableID);
 
         if (variableID == null) {
             System.out.println("Error: Variable " + variableName + " is undeclared.");
