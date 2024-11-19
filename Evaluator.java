@@ -245,7 +245,7 @@ public class Evaluator {
      **********************************************************/
 
     // Method to check if the token is a variable (you can modify this to check based on your symbol table)
-    static boolean isVariable(String token) {
+    public static boolean isVariable(String token) {
         boolean exists = symbolTable.containsVariable(token);
         System.out.println("Checking if variable exists: " +token+ " => " +exists);
         return exists;  // Assuming symbolTable is a map of variable names to values

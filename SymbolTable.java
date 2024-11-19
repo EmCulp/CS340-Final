@@ -73,6 +73,10 @@ public class SymbolTable {
         this.nextId = 600; // Start IDs from 600
     }
 
+    public Entry get(String name){
+        return table.get(name);
+    }
+
     public void addEntry(String name, String type, Object value, String scope){
         table.put(nextId, new Entry(name, type, value, scope));
         nextId++;

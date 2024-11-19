@@ -35,6 +35,7 @@ public class Compiler {
     private static Tokenization tokenizer;
     private static Compiler compiler;
     private static MIPSGenerator mipsGenerator = new MIPSGenerator();
+    private static Set<String> checkedVariables = new HashSet<>();
 
     static{
         compiler = new Compiler();
@@ -107,61 +108,6 @@ public class Compiler {
         List<String> tokenID = Arrays.asList(tokens);
         List<Integer> id = new ArrayList<>();
 
-        if(tokens.length == 3 && tokens[0].equals("boolean")){
-            String variableName = tokens[1].replace(";", "");
-            System.out.println("Checking if variable exists: " +variableName+ " => " + symbolTable.containsVariable(variableName));
-
-            if(!symbolTable.containsVariable(variableName)) {
-                addBooleanLiteralIfNotExist("false");
-                //adds variable with default value
-                symbolTable.addOrUpdateBoolean(variableName, false);
-                System.out.println("Not in symbol table... Now added to Symbol Table: " +variableName);
-            }else{
-                System.out.println("Error: Variable " +variableName+ " is already declared.");
-            }
-        }else if(tokens.length == 5 && tokens[0].equals("boolean") && tokens[2].equals("=")){
-            String variableName = tokens[1];
-            boolean value = Boolean.parseBoolean(tokens[3].replace(";", ""));
-            System.out.println("Checking if variable exists: " +variableName+ " => " + symbolTable.containsVariable(variableName));
-
-            if(!symbolTable.containsVariable(variableName)){
-                addBooleanLiteralIfNotExist(value ? "true" : "false");
-                symbolTable.addOrUpdateBoolean(variableName, value);
-                System.out.println("Added to Symbol Table with value: " +variableName+ " = " +value);
-            }else{
-                System.out.println("Error: Variable " + variableName + " is already declared.");
-            }
-        }else{
-//            System.out.println("Syntax error: Unrecognized command");
-
-            for (String t : tokenID) {
-                System.out.println("Processing token: " + t);
-                Integer tokenIDValue = null;
-
-                if (keywordTable.contains(t)) {
-                    tokenIDValue = keywordTable.getTokenID(t);
-                    System.out.println("Keyword: " + t);
-                } else if (operatorTable.contains(t)) {
-                    tokenIDValue = operatorTable.getTokenID(t);
-                } else if (symbolTable.containsVariable(t)) {
-                    tokenIDValue = symbolTable.getIdByName(t);
-                    System.out.println("Found variable in symbol table: " + t);
-                } else if (isNumericLiteral(t)) {
-                    tokenIDValue = literalTable.getLiteralID(t);
-                } else if (t.equals("true") || t.equals("false")) {
-                    tokenIDValue = literalTable.getBooleanLiteralID(t);
-                } else {
-                    System.out.println("Unrecognized token... " + t);
-                }
-
-                if (tokenIDValue != null) {
-                    id.add(tokenIDValue);
-                } else {
-                    System.out.println("Unrecognized token: " + t);
-                }
-            }
-        }
-
         if(keywordTable.contains(tokens[0])){
             int tid = keywordTable.getTokenID(tokens[0]);
 
@@ -194,8 +140,10 @@ public class Compiler {
                 handleInput(tokens);  // Handle input
             } else if (keywordTable.contains(tokens[0]) && keywordTable.getTokenID(tokens[0]) == 102) {
                 handlePrint(tokens);  // Handle print
-            } else {
-                System.out.println("Syntax error: Unrecognized command");
+            } else if(tokens[0].equals("boolean")) {
+                handleBoolean(tokens);
+            }else{
+                    System.out.println("Syntax error: Unrecognized command");
             }
         } else {
             System.out.println("Syntax error: Command must end with a semicolon");
@@ -255,6 +203,38 @@ public class Compiler {
             System.out.println("Syntax error: Invalid variable declaration.");
         }
     }
+
+    private static void handleBoolean(String[] tokens) {
+        if (tokens.length == 3 && tokens[0].equals("boolean")) {
+            String variableName = tokens[1].replace(";", "");  // Remove semicolon if present
+            System.out.println("Checking if variable exists: " + variableName + " => " + symbolTable.containsVariable(variableName));
+
+            if (!symbolTable.containsVariable(variableName)) {
+                // Add the boolean variable with default value
+                addBooleanLiteralIfNotExist("false");
+                symbolTable.addOrUpdateBoolean(variableName, false);  // Default to false
+                System.out.println("Not in symbol table... Now added to Symbol Table: " + variableName);
+            } else {
+                System.out.println("Error: Variable " + variableName + " is already declared.");
+            }
+        } else if (tokens.length == 5 && tokens[0].equals("boolean") && tokens[2].equals("=")) {
+            String variableName = tokens[1];
+            boolean value = Boolean.parseBoolean(tokens[3].replace(";", ""));  // Parse boolean value from token
+            System.out.println("Checking if variable exists: " + variableName + " => " + symbolTable.containsVariable(variableName));
+
+            if (!symbolTable.containsVariable(variableName)) {
+                // Add the boolean literal to literal table if not already added
+                addBooleanLiteralIfNotExist(value ? "true" : "false");
+                symbolTable.addOrUpdateBoolean(variableName, value);  // Add boolean value to symbol table
+                System.out.println("Added to Symbol Table with value: " + variableName + " = " + value);
+            } else {
+                System.out.println("Error: Variable " + variableName + " is already declared.");
+            }
+        } else {
+            System.out.println("Syntax error: Invalid boolean declaration or assignment.");
+        }
+    }
+
 
     private static void addBooleanLiteralIfNotExist(String value){
         if(!literalTable.containsBooleanLiteral(value)){
