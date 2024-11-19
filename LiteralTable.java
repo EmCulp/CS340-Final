@@ -26,8 +26,10 @@ import java.util.Map;
 
 public class LiteralTable{
     private final Map<Integer, Integer> literalMap = new HashMap<>();
+    private final Map<String, Integer> booleanLiteralMap = new HashMap<>();
 
     private int nextLiteralID = 900;
+    private int nextBooleanLiteralID = 1100;
 
     /**********************************************************
      * METHOD: addLiteral(int value)                          *
@@ -83,6 +85,27 @@ public class LiteralTable{
         return -1; // Return -1 if the literal is not found
     }
 
+    public int getBooleanLiteralID(String literal){
+        if(booleanLiteralMap.containsKey(literal)){
+            return booleanLiteralMap.get(literal);
+        }else{
+            booleanLiteralMap.put(literal, nextBooleanLiteralID);
+            return nextBooleanLiteralID++;
+        }
+    }
+
+    public boolean containsBooleanLiteral(String value){
+        return booleanLiteralMap.containsKey(value);
+    }
+
+    public int getNextBooleanLiteralID(){
+        return nextBooleanLiteralID++;
+    }
+
+    public void addBooleanLiteral(String value, int id){
+        booleanLiteralMap.put(value, id);
+    }
+
     /**********************************************************
      * METHOD: printTable()                                   *
      * DESCRIPTION:                                            *
@@ -92,9 +115,13 @@ public class LiteralTable{
      **********************************************************/
 
     public void printTable() {
-        System.out.println("Literal Table:");
-        for(Map.Entry<Integer, Integer> entry : literalMap.entrySet()){
-            System.out.println(entry.getKey() + ": " + entry.getValue());
+        System.out.println("Integer Literal Table:");
+        for (Map.Entry<Integer, Integer> entry : literalMap.entrySet()) {
+            System.out.println("ID: " + entry.getKey() + ", Value: " + entry.getValue());
+        }
+        System.out.println("Boolean Literal Table:");
+        for (Map.Entry<String, Integer> entry : booleanLiteralMap.entrySet()) {
+            System.out.println("Value: " + entry.getKey() + ", ID: " + entry.getValue());
         }
     }
 }

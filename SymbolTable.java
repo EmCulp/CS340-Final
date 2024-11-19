@@ -23,7 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class SymbolTable {
-    private final Map<String, Variable> table; // Map to store variable names and their details
+    private final Map<Integer, Entry> table; // Map to store variable names and their details
     private int nextId; // To keep track of the next available ID
 
     /**********************************************************
@@ -33,57 +33,64 @@ public class SymbolTable {
      * the next ID to 600.                                     *
      **********************************************************/
 
+    private static class Entry{
+        String name;
+        String type;
+        Object value;
+        String scope;
+
+        public Entry(String name, String type, Object value, String scope){
+            this.name = name;
+            this.type = type;
+            this.value = value;
+            this.scope = scope;
+        }
+
+        public String getName(){
+            return name;
+        }
+
+        public String getType(){
+            return type;
+        }
+
+        public Object getValue(){
+            return value;
+        }
+
+        public String getScope(){
+            return scope;
+        }
+
+        @Override
+        public String toString(){
+            return String.format("Name: %s, Type: %s, Value: %s, Scope: %s", name, type, value, scope);
+        }
+    }
+
     public SymbolTable() {
         this.table = new HashMap<>();
         this.nextId = 600; // Start IDs from 600
     }
 
-    /**********************************************************
-     * METHOD: getId(String variableName)                     *
-     * DESCRIPTION:                                            *
-     * Retrieves the ID of a variable by its name. If the      *
-     * variable doesn't exist, returns null.                   *
-     * PARAMETERS:                                             *
-     *  String variableName - the name of the variable         *
-     * RETURN VALUE:                                           *
-     *  Integer - the ID of the variable, or null if not found *
-     **********************************************************/
-
-    // Retrieves the ID of a variable by its name
-    public Integer getId(String variableName) {
-        Variable var = table.get(variableName); // Retrieve variable
-        return (var != null) ? var.getId() : null; // Return ID or null if not found
+    public void addEntry(String name, String type, Object value, String scope){
+        table.put(nextId, new Entry(name, type, value, scope));
+        nextId++;
     }
 
-    /**********************************************************
-     * METHOD: getNextId()                                     *
-     * DESCRIPTION:                                            *
-     * Retrieves the next available ID for a new variable and  *
-     * increments the ID counter.                              *
-     * RETURN VALUE:                                           *
-     *  int - the next available ID                            *
-     **********************************************************/
-
-    // Retrieves the next available ID
-    public int getNextId() {
-        return nextId++;
+    public void addBoolean(String variableName, boolean value){
+        int id = nextId++;
+        Entry entry = new Entry(variableName, "boolean", value, "global");
+        table.put(id, entry);
+        System.out.println("Added " +variableName+ " to Symbol Table with ID " +id);
     }
 
-    /**********************************************************
-     * METHOD: addVariable(String name, int value)             *
-     * DESCRIPTION:                                            *
-     * Adds a new variable to the symbol table. A unique ID is *
-     * assigned to the variable, and it is stored in the table.*
-     * PARAMETERS:                                             *
-     *  String name - the variable's name                      *
-     *  int value - the initial value of the variable          *
-     **********************************************************/
-
-    // Adds a variable to the symbol table
-    public void addVariable(String name, int value) {
-        if(!table.containsKey(name)){
-//            table.put(name, new Variable(name, nextId++));
-            put(name, value);
+    public void addOrUpdateBoolean(String variableName, boolean value){
+        if(containsVariable(variableName)){
+            updateValue(variableName, value);
+            System.out.println("Updated " +variableName+ " with new value: " +value);
+        }else{
+            addBoolean(variableName, value);
         }
     }
 
@@ -101,13 +108,18 @@ public class SymbolTable {
      **********************************************************/
 
     // Retrieves the value associated with a variable name
-    public Integer getValue(String name) {
-        Variable value = table.get(name);
-        if(value == null){
-            System.err.println("Variable not found " + name);
-            return null;
+    public Object getValueById(int id){
+        Entry entry = table.get(id);
+        return (entry != null) ? entry.value : null;
+    }
+
+    public Integer getIdByName(String name){
+        for(Map.Entry<Integer, Entry> entry : table.entrySet()){
+            if(entry.getValue().getName().equals(name)){
+                return entry.getKey();
+            }
         }
-        return value.getValue();
+        return null;    //not found
     }
 
     /**********************************************************
@@ -122,13 +134,14 @@ public class SymbolTable {
      **********************************************************/
 
     // Updates the value of a variable
-    public void updateValue(String name, int value) {
-        Variable var = table.get(name);
-        if (var != null) {
-            var.setValue(value);
-        } else {
-            throw new IllegalArgumentException("Variable '" + name + "' is undeclared.");
+    public void updateValue(String name, Object newValue) {
+        for(Map.Entry<Integer, Entry> entry : table.entrySet()){
+            if(entry.getValue().name.equals(name)){
+                entry.getValue().value = newValue;
+                return;
+            }
         }
+        throw new IllegalArgumentException("Variable '" + name + "' not found.");
     }
 
     /**********************************************************
@@ -143,35 +156,25 @@ public class SymbolTable {
 
     // Checks if a variable exists in the symbol table
     public boolean containsVariable(String name) {
+        System.out.println("Checking for variable in symbol table: " +name);
         return table.containsKey(name);
     }
 
-    public void setVariableValue(String variableName, Integer value){
-        Variable var = table.get(variableName);
-        if(var != null){
-            var.setValue(value);
-        }else{
-            System.out.println("Error: Variable not found");
-        }
-    }
-
-    public void put(String variableName, int value){
-        Variable variable = new Variable(variableName, value, nextId++);
-        table.put(variableName, variable);
-    }
-
     /**********************************************************
-     * METHOD: printTable()                                    *
+     * METHOD: display()                                    *
      * DESCRIPTION:                                            *
      * Prints the contents of the symbol table to the console, *
      * displaying each variable's name, value, and ID.         *
      **********************************************************/
 
-    // Prints the symbol table (for debugging)
-    public void printTable() {
+    // Method to display all entries in the symbol table
+    public void display() {
         System.out.println("Symbol Table:");
-        for (Map.Entry<String, Variable> entry : table.entrySet()) {
-            System.out.println("Variable: " + entry.getKey() + ", Value: " + entry.getValue().getValue() + ", ID: " + entry.getValue().getId());
+        System.out.println("ID    | Name       | Type       | Value      | Scope");
+        System.out.println("---------------------------------------------------");
+        for (Map.Entry<Integer, Entry> entry : table.entrySet()) {
+            System.out.printf("%-6d | %-10s | %-10s | %-10s | %-6s\n",
+                    entry.getKey(), entry.getValue().name, entry.getValue().type, entry.getValue().value, entry.getValue().scope);
         }
     }
 }

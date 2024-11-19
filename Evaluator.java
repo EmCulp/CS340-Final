@@ -58,32 +58,30 @@ public class Evaluator {
      **********************************************************/
 
     // Evaluate a mathematical expression with support for variables and PEMDAS
-    public int evaluate(String expression) throws Exception {
-        String[] tokens = expression.split(" ");
-        Stack<Integer> values = new Stack<>();
-        Stack<String> ops = new Stack<>();
+    public Object evaluate(String expression) {
+        Stack<Object> values = new Stack<>();
+        Stack<Character> ops = new Stack<>();
+
+        String[] tokens = expression.split("\\s+");
 
         for (String token : tokens) {
             if (isInteger(token)) {
-                values.push(Integer.parseInt(token));
-            } else if (isVariable(token)) {
-                Integer value = symbolTable.getValue(token);
-                if (value == null) {
-                    throw new RuntimeException("Variable not found: " + token);
-                }
+                int value = Integer.parseInt(token);
                 values.push(value);
-            } else if (token.equals("(")) {
-                ops.push(token);
-            } else if (token.equals(")")) {
-                while (!ops.isEmpty() && !ops.peek().equals("(")) {
+                literalTable.addLiteral(value); // Assuming you have an addLiteral() method
+            } else if (symbolTable.containsVariable(token)) {
+                Integer id = symbolTable.getIdByName(token);
+                if (id != null) {
+                    Object value = symbolTable.getValueById(id);
+                    values.push(value);
+                } else {
+                    throw new IllegalArgumentException("Variable '" + token + "' not found.");
+                }
+            } else if (isOperator(token.charAt(0))) {
+                while (!ops.isEmpty() && precedence(ops.peek()) >= precedence(token.charAt(0))) {
                     values.push(applyOperation(ops.pop(), values.pop(), values.pop()));
                 }
-                ops.pop(); // pop '('
-            } else {
-                while (!ops.isEmpty() && precedence(ops.peek()) >= precedence(token)) {
-                    values.push(applyOperation(ops.pop(), values.pop(), values.pop()));
-                }
-                ops.push(token);
+                ops.push(token.charAt(0));
             }
         }
 
@@ -91,72 +89,33 @@ public class Evaluator {
             values.push(applyOperation(ops.pop(), values.pop(), values.pop()));
         }
 
-        int result = values.pop();
-        literalTable.addLiteral(result);
-
-        return result;
+        return values.pop();
     }
 
-    /**********************************************************
-     * METHOD: applyOperation(String operator, int right,     *
-     *                        int left)                       *
-     * DESCRIPTION: Applies the specified operator to two     *
-     *              operands and returns the result.          *
-     * PARAMETERS: String operator - the operator to apply.   *
-     *             int right - the right operand.             *
-     *             int left - the left operand.               *
-     * RETURN VALUE: int - the result of the operation.       *
-     * EXCEPTIONS: Throws an Exception for unknown operators. *
-     **********************************************************/
-
-    private int applyOperation(String operator, int right, int left) throws Exception {
-        if(operator.equals("^")){
-            System.out.print(CodeGenerator.START_DEFINE + " ");
-            for(int i = 1; i < right; i++){
-                System.out.print(CodeGenerator.MULT + " ");
-            }
-            System.out.println(CodeGenerator.END_DEFINE + " ");
-            return (int) Math.pow(left, right);
-        }
-
-        Stack<Integer> operands = new Stack<>();
-        operands.push(left);
-        operands.push(right);
-        processOperation(operands, operator);
-        return operands.pop(); // Return the result of the operation
+    private boolean isOperator(char c){
+        return c == '+' || c == '-' || c == '*' || c == '/' || c == '^';
     }
 
-    /**********************************************************
-     * METHOD: processOperation(Stack<Integer> operands,      *
-     *                          String operator)              *
-     * DESCRIPTION: Processes the operation by applying the   *
-     *              operator to the operands and pushing the  *
-     *              result back to the stack.                 *
-     * PARAMETERS: Stack<Integer> operands - stack of operands*
-     *             String operator - the operator to apply.   *
-     * EXCEPTIONS: Throws an Exception for division by zero or*
-     *             insufficient operands.                     *
-     **********************************************************/
-
-    private void processOperation(Stack<Integer> operands, String operator) throws Exception {
-        if (operands.size() < 2) {
-            throw new Exception("Insufficient operands for operator: " + operator);
+    private Object applyOperation(char op, Object b, Object a) {
+        if (!(a instanceof Integer) || !(b instanceof Integer)) {
+            throw new IllegalArgumentException("Only integer operations are supported.");
         }
 
-        int right = operands.pop();
-        int left = operands.pop();
+        int x = (int) a;
+        int y = (int) b;
 
-        switch (operator) {
-            case "+" -> operands.push(left + right);
-            case "-" -> operands.push(left - right);
-            case "*" -> operands.push(left * right);
-            case "/" -> {
-                if (right == 0) throw new ArithmeticException("Division by zero");
-                operands.push(left / right);
-            }
-            case "^" -> operands.push((int) Math.pow(left, right));
-            default -> throw new IllegalArgumentException("Unknown operator: " + operator);
+        switch (op) {
+            case '+':
+                return x + y;
+            case '-':
+                return x - y;
+            case '*':
+                return x * y;
+            case '/':
+                if (y == 0) throw new ArithmeticException("Cannot divide by zero.");
+                return x / y;
         }
+        return 0;
     }
 
     /**********************************************************
@@ -169,8 +128,8 @@ public class Evaluator {
      *              operator.                                 *
      **********************************************************/
 
-    private int precedence(String operator) {
-        return OPERATOR_PRECEDENCE.getOrDefault(operator, 0);
+    private int precedence(char op) {
+        return OPERATOR_PRECEDENCE.getOrDefault(op, 0);
     }
 
     /**********************************************************
@@ -189,6 +148,37 @@ public class Evaluator {
             return false;
         }
     }
+
+    public Object evaluateExpression(String expression) {
+        Stack<Object> values = new Stack<>();
+        Stack<Character> ops = new Stack<>();
+
+        String[] tokens = expression.split("\\s+");
+
+        for (String token : tokens) {
+            if (isInteger(token)) {
+                values.push(Integer.parseInt(token));
+            } else if (symbolTable.containsVariable(token)) {
+                Integer id = symbolTable.getIdByName(token);
+                if (id != null) {
+                    Object value = symbolTable.getValueById(id);
+                    values.push(value);
+                }
+            } else if (isOperator(token.charAt(0))) {
+                while (!ops.isEmpty() && precedence(ops.peek()) >= precedence(token.charAt(0))) {
+                    values.push(applyOperation(ops.pop(), values.pop(), values.pop()));
+                }
+                ops.push(token.charAt(0));
+            }
+        }
+
+        while (!ops.isEmpty()) {
+            values.push(applyOperation(ops.pop(), values.pop(), values.pop()));
+        }
+
+        return values.pop();
+    }
+
 
     /**********************************************************
      * METHOD: evaluateCondition(List<String> tokens, List<Integer> tokenIDs)*
@@ -232,34 +222,18 @@ public class Evaluator {
         }
     }
 
-    /**********************************************************
-     * METHOD: getValue(String token)                            *
-     * DESCRIPTION: Retrieves the value of a token. If the token  *
-     *              represents a variable, its value is fetched  *
-     *              from the symbol table. If it represents a     *
-     *              literal integer, the integer value is parsed. *
-     * PARAMETERS: String token - The token to retrieve the value of. *
-     * RETURN VALUE: int - The value of the token, either from   *
-     *              the symbol table or as a parsed literal integer. *
-     * EXCEPTIONS: Throws a NumberFormatException if the token cannot be parsed as a integer. *
-     **********************************************************/
-
-    // Helper method to get the value of a token (either from the symbol table or directly as a literal value)
-    private static int getValue(String token) {
-        // Check if the token is a variable (i.e., it exists in the symbol table)
-        if (isVariable(token)) {
-            // Fetch the variable's value from the symbol table
-            return symbolTable.getValue(token);  // Assuming symbolTable stores variables and their values
-        } else {
-            // Check if the token is a literal integer
-            try {
-                return Integer.parseInt(token);  // Parse the token as an integer if it's a literal value
-            } catch (NumberFormatException e) {
-                System.out.println("Invalid token for getValue: " + token);
-                return 0;  // Return a default value or handle the error appropriately
-            }
+    private int getValue(String operand) {
+        // If the operand is a variable, get its value from the symbol table
+        if (symbolTable.containsVariable(operand)) {
+            Integer id = symbolTable.getIdByName(operand);
+            return (int) symbolTable.getValueById(id); // Assuming getValueById returns an int
+        }
+        // If it's a literal (e.g., a number), return it directly
+        else {
+            return Integer.parseInt(operand); // Convert string literals to integers
         }
     }
+
 
     /**********************************************************
      * METHOD: isVariable(String token)                          *
@@ -272,34 +246,9 @@ public class Evaluator {
 
     // Method to check if the token is a variable (you can modify this to check based on your symbol table)
     static boolean isVariable(String token) {
-        return symbolTable.containsVariable(token);  // Assuming symbolTable is a map of variable names to values
-    }
-
-    /**********************************************************
-     * METHOD: evaluateExpression(String expression)              *
-     * DESCRIPTION: Evaluates a simple mathematical expression   *
-     *              consisting of two operands and a single operator. *
-     * PARAMETERS: String expression - The expression to evaluate, *
-     *             in the form "a + 1" or "a - 1".                 *
-     * RETURN VALUE: int - The result of the evaluated expression.  *
-     * EXCEPTIONS: Throws a NumberFormatException if a non-numeric value is encountered. *
-     **********************************************************/
-
-    public static int evaluateExpression(String expression) {
-        // This method evaluates simple expressions like "a + 1" and returns the result.
-        // Split by operators and evaluate the expression (assumes a basic format like "a + 1")
-
-        String[] parts = expression.split("[+-]");  // Split by addition or subtraction operators
-        int leftValue = symbolTable.getValue(parts[0].trim());  // Get the left operand value (from symbol table)
-        int rightValue = Integer.parseInt(parts[1].trim());    // Get the right operand value (literal)
-
-        if (expression.contains("+")) {
-            return leftValue + rightValue;  // Perform addition
-        } else if (expression.contains("-")) {
-            return leftValue - rightValue;  // Perform subtraction
-        }
-
-        return leftValue; // If no operator found, return the left operand (i.e., variable)
+        boolean exists = symbolTable.containsVariable(token);
+        System.out.println("Checking if variable exists: " +token+ " => " +exists);
+        return exists;  // Assuming symbolTable is a map of variable names to values
     }
 
 }

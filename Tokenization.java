@@ -69,8 +69,9 @@ public class Tokenization {
     // Helper method to identify token types (keywords, literals, operators, etc.)
     private static String getTokenType(String token) {
         if (token.matches("\\d+")) return "Literal";
+        if (token.equals("true") || token.equals("false")) return "BooleanLiteral";
         if (token.matches("[+\\-*/=(){}^<>.,?!:\"'\\[\\]]")) return "Operator";
-        if (token.matches("integer|input|print")) return "Keyword";
+        if (token.matches("integer|input|print|boolean")) return "Keyword";
         return "Identifier";
     }
 }

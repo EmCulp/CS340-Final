@@ -26,18 +26,18 @@
 
 import java.util.*;
 
-public class Interpreter {
+public class Compiler {
     private static SymbolTable symbolTable;
     private static LiteralTable literalTable;
     private static KeywordTable keywordTable;
     private static OperatorTable operatorTable;
     private static Evaluator evaluator;
     private static Tokenization tokenizer;
-    private static Interpreter interpreter;
+    private static Compiler compiler;
     private static MIPSGenerator mipsGenerator = new MIPSGenerator();
 
     static{
-        interpreter = new Interpreter();
+        compiler = new Compiler();
         symbolTable =  new SymbolTable();
         literalTable = new LiteralTable();
         evaluator = new Evaluator(symbolTable, literalTable);
@@ -80,11 +80,11 @@ public class Interpreter {
             System.out.println("Tokens (main): " + String.join(" ", tokens));
 
             // Execute the command based on tokens
-            interpreter.executeCommand(tokens);
+            compiler.executeCommand(tokens);
         }
 
         scanner.close();
-        symbolTable.printTable(); // Print the symbol table at the end
+        symbolTable.display(); // Print the symbol table at the end
         literalTable.printTable();
     }
 
@@ -107,23 +107,58 @@ public class Interpreter {
         List<String> tokenID = Arrays.asList(tokens);
         List<Integer> id = new ArrayList<>();
 
-        for (String t : tokenID) {
-            Integer tokenIDValue = null;
+        if(tokens.length == 3 && tokens[0].equals("boolean")){
+            String variableName = tokens[1].replace(";", "");
+            System.out.println("Checking if variable exists: " +variableName+ " => " + symbolTable.containsVariable(variableName));
 
-            if(keywordTable.contains(t)){
-                tokenIDValue = keywordTable.getTokenID(t);
-            }else if(operatorTable.contains(t)){
-                tokenIDValue = operatorTable.getTokenID(t);
-            }else if(evaluator.isVariable(t)){
-                tokenIDValue = symbolTable.getId(t);
-            }else if(isNumericLiteral(t)){
-                tokenIDValue = literalTable.getLiteralID(t);
-            }
-
-            if(tokenIDValue != null){
-                id.add(tokenIDValue);
+            if(!symbolTable.containsVariable(variableName)) {
+                addBooleanLiteralIfNotExist("false");
+                //adds variable with default value
+                symbolTable.addOrUpdateBoolean(variableName, false);
+                System.out.println("Not in symbol table... Now added to Symbol Table: " +variableName);
             }else{
-                System.out.println("Unrecognized token: " +t);
+                System.out.println("Error: Variable " +variableName+ " is already declared.");
+            }
+        }else if(tokens.length == 5 && tokens[0].equals("boolean") && tokens[2].equals("=")){
+            String variableName = tokens[1];
+            boolean value = Boolean.parseBoolean(tokens[3].replace(";", ""));
+            System.out.println("Checking if variable exists: " +variableName+ " => " + symbolTable.containsVariable(variableName));
+
+            if(!symbolTable.containsVariable(variableName)){
+                addBooleanLiteralIfNotExist(value ? "true" : "false");
+                symbolTable.addOrUpdateBoolean(variableName, value);
+                System.out.println("Added to Symbol Table with value: " +variableName+ " = " +value);
+            }else{
+                System.out.println("Error: Variable " + variableName + " is already declared.");
+            }
+        }else{
+//            System.out.println("Syntax error: Unrecognized command");
+
+            for (String t : tokenID) {
+                System.out.println("Processing token: " + t);
+                Integer tokenIDValue = null;
+
+                if (keywordTable.contains(t)) {
+                    tokenIDValue = keywordTable.getTokenID(t);
+                    System.out.println("Keyword: " + t);
+                } else if (operatorTable.contains(t)) {
+                    tokenIDValue = operatorTable.getTokenID(t);
+                } else if (symbolTable.containsVariable(t)) {
+                    tokenIDValue = symbolTable.getIdByName(t);
+                    System.out.println("Found variable in symbol table: " + t);
+                } else if (isNumericLiteral(t)) {
+                    tokenIDValue = literalTable.getLiteralID(t);
+                } else if (t.equals("true") || t.equals("false")) {
+                    tokenIDValue = literalTable.getBooleanLiteralID(t);
+                } else {
+                    System.out.println("Unrecognized token... " + t);
+                }
+
+                if (tokenIDValue != null) {
+                    id.add(tokenIDValue);
+                } else {
+                    System.out.println("Unrecognized token: " + t);
+                }
             }
         }
 
@@ -149,12 +184,12 @@ public class Interpreter {
                 if (tokens.length == 3) {
                     handleVariableDeclaration(tokens);  // Variable declaration
                 } else if (tokens.length == 5 && tokens[2].equals("=")) {
-                    interpreter.handleAssignment(tokens);  // Variable assignment
+                    compiler.handleAssignment(tokens);  // Variable assignment
                 } else {
                     System.out.println("Syntax error: Invalid variable declaration.");
                 }
             } else if (tokens.length >= 3 && tokens[1].equals("=")) {
-                interpreter.handleAssignment(tokens);  // Assignment
+                compiler.handleAssignment(tokens);  // Assignment
             } else if (keywordTable.contains(tokens[0]) && keywordTable.getTokenID(tokens[0]) == 101) {
                 handleInput(tokens);  // Handle input
             } else if (keywordTable.contains(tokens[0]) && keywordTable.getTokenID(tokens[0]) == 102) {
@@ -203,10 +238,10 @@ public class Interpreter {
 
         // If the declaration is just "integer x;"
         if (tokens.length == 3 && tokens[2].equals(";")) {
-            symbolTable.addVariable(variableName, 0); // Default value 0 for uninitialized variables
-            System.out.println("Variable declaration: " + variableName + " with ID: " + symbolTable.getId(variableName));
+            symbolTable.addEntry(variableName, "int", 0, "global"); // Default value 0 for uninitialized variables
+            System.out.println("Variable declaration: " + variableName + " with ID: " + symbolTable.getIdByName(variableName));
 
-            int variableID = symbolTable.getId(variableName);
+            int variableID = symbolTable.getIdByName(variableName);
 
             int literalID = literalTable.addLiteral(0);
             System.out.println("Added literal: 0 with ID " + literalID + " to the Literal Table.");
@@ -221,6 +256,13 @@ public class Interpreter {
         }
     }
 
+    private static void addBooleanLiteralIfNotExist(String value){
+        if(!literalTable.containsBooleanLiteral(value)){
+            int id = literalTable.getNextBooleanLiteralID();
+            literalTable.addBooleanLiteral(value, id);
+            System.out.println("Added to Boolean Literal Table: " + value + " with ID: " +id);
+        }
+    }
 
     /**********************************************************
      * METHOD: handleInput(String[] tokens)                    *
@@ -246,7 +288,7 @@ public class Interpreter {
         }
 
         String variableName = tokens[2]; // Extract the variable name
-        Integer variableID = symbolTable.getId(variableName); // Fetch variable ID
+        Integer variableID = symbolTable.getIdByName(variableName); // Fetch variable ID
 
         if (variableID == null) {
             System.out.println("Error: Variable " + variableName + " is undeclared.");
@@ -343,11 +385,11 @@ public class Interpreter {
 
         // Process each element inside the parentheses
         for (String element : elements) {
-            Integer tokenId = symbolTable.getId(element); // Check if it's a variable
+            Integer tokenId = symbolTable.getIdByName(element); // Check if it's a variable
 
             if (tokenId != null) {
                 // If it's a variable, get the variable's value and token ID
-                Object variableValue = symbolTable.getValue(element); // Get the value of the symbol
+                Object variableValue = symbolTable.getValueById(tokenId); // Get the value of the symbol
                 tokenIDs.append(tokenId).append(" "); // Append the token ID of the variable
                 values.append(variableValue).append(" "); // Append the value of the variable
             } else {
@@ -378,10 +420,10 @@ public class Interpreter {
 
         // Generate code for printing each element
         for (String element : elements) {
-            Integer tokenId = symbolTable.getId(element);
+            Integer tokenId = symbolTable.getIdByName(element);
             if (tokenId != null) {
                 // Load the value of the variable and generate code to print it
-                Object variableValue = symbolTable.getValue(element);
+                Object variableValue = symbolTable.getValueById(tokenId);
                 System.out.println(CodeGenerator.LOAD + " " + tokenId); // Use token ID for the variable
             } else {
                 try {
@@ -422,8 +464,8 @@ public class Interpreter {
 
             // Declare the variable with a default value (0)
             if (!symbolTable.containsVariable(variableName)) {
-                symbolTable.addVariable(variableName, 0);
-                System.out.println("Encountered new symbol " + variableName + " with id " + symbolTable.getId(variableName));
+                symbolTable.addEntry(variableName, "int", 0, "global");
+                System.out.println("Encountered new symbol " + variableName + " with id " + symbolTable.getIdByName(variableName));
             }
 
             // Parse and assign the initial value
@@ -440,7 +482,7 @@ public class Interpreter {
                 Integer semicolonTokenID = operatorTable.get(";");
 
                 // Print TokenIDs
-                System.out.print("TokenIDs: " + integerTokenID + " " + symbolTable.getId(variableName) + " " + assignTokenID + " " + literalID + " " + semicolonTokenID + " ");
+                System.out.print("TokenIDs: " + integerTokenID + " " + symbolTable.getIdByName(variableName) + " " + assignTokenID + " " + literalID + " " + semicolonTokenID + " ");
                 System.out.println();
                 System.out.println("Code Generators: " + CodeGenerator.START_DEFINE + " " + CodeGenerator.END_DEFINE);
 
@@ -456,13 +498,14 @@ public class Interpreter {
             try {
                 // Ensure the variable is declared
                 if (!symbolTable.containsVariable(variableName)) {
-                    symbolTable.addVariable(variableName, 0); // Declare it if not
-                    System.out.println("Encountered new symbol " + variableName + " with id " + symbolTable.getId(variableName));
+                    symbolTable.addEntry(variableName, "int", 0, "global"); // Declare it if not
+                    System.out.println("Encountered new symbol " + variableName + " with id " + symbolTable.getIdByName(variableName));
                 }
 
                 // Evaluate the expression to get the value to assign
                 // Here, we assume you have a method in your Evaluator class that can evaluate the expression and generate code
-                int value = evaluator.evaluate(valueExpression); // Use the Evaluator to calculate the value
+                Object result = evaluator.evaluate(valueExpression); // Use the Evaluator to calculate the value
+                int value = (Integer) result;
 
                 // Check if the value is in the literal table, if not, add it
                 int valueID = literalTable.addLiteral(value);
@@ -471,13 +514,13 @@ public class Interpreter {
                 // Update the variable's value in the symbol table
                 symbolTable.updateValue(variableName, value);
 
-                System.out.println("Assigned value: " + value + " to variable '" + variableName + "' with ID " + symbolTable.getId(variableName));
+                System.out.println("Assigned value: " + value + " to variable '" + variableName + "' with ID " + symbolTable.getIdByName(variableName));
 
                 Integer assignTokenID = operatorTable.get("=");
                 Integer semicolonTokenID = operatorTable.get(";");
 
                 // Print TokenIDs (example, adjust according to your actual logic)
-                System.out.print("TokenIDs: " + symbolTable.getId(variableName) + " " + assignTokenID + " " + valueID + " " + semicolonTokenID + " ");
+                System.out.print("TokenIDs: " + symbolTable.getIdByName(variableName) + " " + assignTokenID + " " + valueID + " " + semicolonTokenID + " ");
                 System.out.println();
 
                 // Add code generators based on the operations performed
@@ -584,7 +627,7 @@ public class Interpreter {
                             String expression = parts[1].trim().replace(";", "");  // Extract the expression
 
                             // Evaluate the right-hand side expression
-                            int newValue = evaluator.evaluateExpression(expression);  // Evaluate expression like "a + 1"
+                            int newValue = (Integer) evaluator.evaluateExpression(expression);  // Evaluate expression like "a + 1"
 
                             // Update the symbol table with the new value
                             symbolTable.updateValue(variableName, newValue);
@@ -787,7 +830,7 @@ public class Interpreter {
                         System.out.println("Processing math operation: " + leftOperand + " " + operator + " " + rightOperand);
 
                         // Evaluate the right-hand side expression (like "x + 5")
-                        int rightValue = evaluator.evaluate(rightOperand); // Implement this method to evaluate the math
+                        int rightValue = (Integer) evaluator.evaluate(rightOperand); // Implement this method to evaluate the math
 
                         // Update the variable with the new value
                         symbolTable.updateValue(leftOperand, rightValue); // Implement this method to update the symbol table
@@ -876,7 +919,7 @@ public class Interpreter {
                         System.out.println("Processing math operation: " + leftOperand + " " + operator + " " + rightOperand);
 
                         // Evaluate the right-hand side expression (like "x + 5")
-                        int rightValue = evaluator.evaluate(rightOperand); // Implement this method to evaluate the math
+                        int rightValue = (Integer) evaluator.evaluate(rightOperand); // Implement this method to evaluate the math
 
                         // Update the variable with the new value
                         symbolTable.updateValue(leftOperand, rightValue); // Implement this method to update the symbol table
@@ -915,12 +958,12 @@ public class Interpreter {
         // Check if the token is a variable (like 'a', 'b', etc.)
         else if (symbolTable.containsVariable(token)) {
             // Retrieve the token ID for the variable from the symbol table
-            int tokenID = symbolTable.getId(token);
+            int tokenID = symbolTable.getIdByName(token);
             // Print the token ID for the variable
             System.out.println("Token: " + token + ", Token ID (Variable): " + tokenID);
 
             // Retrieve the value of the variable for condition evaluation (use value in comparison)
-            int variableValue = symbolTable.getValue(token);
+//            Object variableValue = symbolTable.getValueById(tokenID);
 
             // Return the token ID to be used for condition evaluation (if needed)
             return tokenID;
