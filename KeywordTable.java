@@ -19,7 +19,7 @@ public class KeywordTable {
         keywordMap.put("while", 105);
         keywordMap.put("boolean", 106);
         keywordMap.put("double", 107);
-        keywordMap.put("String", 108);
+        keywordMap.put("string", 108);
         keywordMap.put("float", 109);
         keywordMap.put("for", 110);
     }

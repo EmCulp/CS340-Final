@@ -25,110 +25,38 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class LiteralTable{
-    private final Map<Integer, Integer> literalMap = new HashMap<>();
-    private final Map<String, Integer> booleanLiteralMap = new HashMap<>();
-    private final Map<Integer, Double> doubleLiteralMap = new HashMap<>();
+    private final Map<Integer, Object> literalTable = new HashMap<>();
 
     private int nextLiteralID = 900;
-    private int nextBooleanLiteralID = 1100;
 
-    /**********************************************************
-     * METHOD: addLiteral(int value)                          *
-     * DESCRIPTION:                                            *
-     * Adds a new literal to the table if it doesn't already   *
-     * exist, assigns a unique ID, and returns the ID. If the  *
-     * literal already exists, it returns the existing ID.     *
-     * PARAMETERS:                                             *
-     *  int value - the integer literal to add                 *
-     * RETURN VALUE:                                           *
-     *  int - the ID assigned to the literal                   *
-     **********************************************************/
-
-    public int addLiteral(int value) {
-        if(!literalMap.containsValue(value)){
-            literalMap.put(nextLiteralID, value);
-            return nextLiteralID++;
-        }
-        return getLiteralID(value);
-    }
-
-
-    /**********************************************************
-     * METHOD: getLiteralID(int value)                        *
-     * DESCRIPTION:                                            *
-     * Retrieves the ID of a given literal from the table. If  *
-     * the literal does not exist, it returns -1.              *
-     * PARAMETERS:                                             *
-     *  int value - the literal value to search for            *
-     * RETURN VALUE:                                           *
-     *  Integer - the ID of the literal or -1 if not found     *
-     **********************************************************/
-    public int getLiteralID(int value){
-        return getLiteralID(String.valueOf(value));
-    }
-
-    /**********************************************************
-     * METHOD: getLiteralID(String literal)                    *
-     * DESCRIPTION:                                            *
-     * Retrieves the ID of a given literal (as a String) from  *
-     * the table. If the literal does not exist, it returns -1. *
-     * PARAMETERS:                                             *
-     *  String literal - the literal value to search for       *
-     * RETURN VALUE:                                           *
-     *  Integer - the ID of the literal or -1 if not found     *
-     **********************************************************/
-    public int getLiteralID(String literal) {
-        for (Map.Entry<Integer, Integer> entry : literalMap.entrySet()) {
-            if (entry.getValue().toString().equals(literal)) {
-                return entry.getKey();  // Return the ID of the literal
-            }
-        }
-        return -1; // Return -1 if the literal is not found
-    }
-
-    public int getBooleanLiteralID(String literal){
-        if(booleanLiteralMap.containsKey(literal)){
-            return booleanLiteralMap.get(literal);
+    public int addLiteral(Object value){
+        if(!literalTable.containsValue(value)){
+            int literalID = nextLiteralID++;
+            literalTable.put(literalID, value);
+            return literalID;
         }else{
-            booleanLiteralMap.put(literal, nextBooleanLiteralID);
-            return nextBooleanLiteralID++;
+            for(Map.Entry<Integer, Object> entry : literalTable.entrySet()){
+                if(entry.getValue().equals(value)){
+                    return entry.getKey();
+                }
+            }
         }
+        return -1;
     }
 
-    public boolean containsBooleanLiteral(String value){
-        return booleanLiteralMap.containsKey(value);
-    }
-
-    public int getNextBooleanLiteralID(){
-        return nextBooleanLiteralID++;
-    }
-
-    public void addBooleanLiteral(String value, int id){
-        booleanLiteralMap.put(value, id);
-    }
-
-    public void addDoubleLiteral(double value) {
-        // Assuming there's a mechanism to get the next available ID for literals
-        int id = nextLiteralID;  // Get next available ID
-        doubleLiteralMap.put(id, value);  // Add to the literal table
-        System.out.println("Added double literal: " + value + " with ID: " + id);
-    }
-
-    public int getDoubleLiteralID(double value) {
-        // Check if the double literal already exists
-        for (Map.Entry<Integer, Double> entry : doubleLiteralMap.entrySet()) {
-            if (entry.getValue().equals(value)) {
-                return entry.getKey(); // Return the existing ID if the value is already in the table
+    public int getLiteralID(Object value){
+        for(Map.Entry<Integer, Object> entry : literalTable.entrySet()){
+            if(entry.getValue().equals(value)){
+                return entry.getKey();
             }
         }
 
-        // If the double value is not already in the table, add it
-        int id = nextLiteralID++;  // Increment ID
-        doubleLiteralMap.put(id, value); // Store the value as a string
-        System.out.println("Added double literal: " + value + " with ID: " + id);
-        return id;
+        return -1;
     }
 
+    public boolean containsValue(Object value){
+        return literalTable.containsValue(value);
+    }
     /**********************************************************
      * METHOD: printTable()                                   *
      * DESCRIPTION:                                            *
@@ -138,17 +66,9 @@ public class LiteralTable{
      **********************************************************/
 
     public void printTable() {
-        System.out.println("Integer Literal Table:");
-        for (Map.Entry<Integer, Integer> entry : literalMap.entrySet()) {
+        System.out.println("Literal Table:");
+        for (Map.Entry<Integer, Object> entry : literalTable.entrySet()) {
             System.out.println("ID: " + entry.getKey() + ", Value: " + entry.getValue());
-        }
-        System.out.println("Boolean Literal Table:");
-        for (Map.Entry<String, Integer> entry : booleanLiteralMap.entrySet()) {
-            System.out.println("Value: " + entry.getKey() + ", ID: " + entry.getValue());
-        }
-        System.out.println("Double Literal Table:");
-        for (Map.Entry<Integer, Double> entry : doubleLiteralMap.entrySet()) {
-            System.out.println("Value: " + entry.getKey() + ", ID: " + entry.getValue());
         }
     }
 }

@@ -178,6 +178,17 @@ public class SymbolTable {
         return table.containsKey(name);
     }
 
+    public String getTypeByName(String variableName){
+        Entry entry = table.get(variableName);
+
+        if(entry != null){
+            return entry.getType();
+        }else{
+            System.out.println("Error: Variable '" +variableName+ "' not found in the symbol table");
+            return null;
+        }
+    }
+
     /**********************************************************
      * METHOD: display()                                    *
      * DESCRIPTION:                                            *

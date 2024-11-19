@@ -144,6 +144,8 @@ public class Compiler {
                 handleBoolean(tokens);
             }else if(tokens[0].equals("double")) {
                 handleDouble(tokens);
+            }else if(tokens[0].equals("string")){
+                handleString(tokens);
             }else{
                 System.out.println("Syntax error: Unrecognized command");
             }
@@ -222,7 +224,15 @@ public class Compiler {
             }
         } else if (tokens.length == 5 && tokens[0].equals("double") && tokens[2].equals("=")) {
             String variableName = tokens[1];
-            double value = Double.parseDouble(tokens[3].replace(";", ""));  // Parse double value from token
+            double value;  // Parse double value from token
+
+            try{
+                value = Double.parseDouble(tokens[3].replace(";", ""));
+            }catch(NumberFormatException e){
+                System.out.println("Error: Invalid double value provided");
+                return;
+            }
+
             System.out.println("Checking if variable exists: " + variableName + " => " + symbolTable.containsVariable(variableName));
 
             if (!symbolTable.containsVariable(variableName)) {
@@ -241,12 +251,12 @@ public class Compiler {
 
     private static void addDoubleLiteralIfNotExist(double value) {
         // Check if the double literal is already in the table
-        if (literalTable.getDoubleLiteralID(value) == 0.0) {
+        if (!literalTable.containsValue(value)) {
             // Add the double literal to the table if it doesn't already exist
-            literalTable.addDoubleLiteral(value);  // Ensure this method is defined
+            literalTable.addLiteral(value);  // Ensure this method is defined
+            System.out.println("Double Literal Added");
         }
     }
-
 
     private static void handleBoolean(String[] tokens) {
         if (tokens.length == 3 && tokens[0].equals("boolean")) {
@@ -279,14 +289,45 @@ public class Compiler {
         }
     }
 
-
     private static void addBooleanLiteralIfNotExist(String value){
-        if(!literalTable.containsBooleanLiteral(value)){
-            int id = literalTable.getNextBooleanLiteralID();
-            literalTable.addBooleanLiteral(value, id);
-            System.out.println("Added to Boolean Literal Table: " + value + " with ID: " +id);
+        if(!literalTable.containsValue(value)){
+            literalTable.addLiteral(value);
+            System.out.println("Added to Boolean Literal Table: " + value);
         }
     }
+
+    private static void handleString(String[] tokens) {
+        // Check if it's a declaration (e.g., string name;)
+        if (tokens.length == 2 && tokens[1].endsWith(";")) {
+            String variableName = tokens[1].substring(0, tokens[1].length() - 1); // Remove the semicolon
+            String type = "string";  // Type of the variable
+            String scope = "global";  // Default scope (adjust as necessary)
+            symbolTable.addEntry(variableName, type, "", scope); // Initialize with an empty string
+            System.out.println("Declared string variable: " + variableName);
+        }
+        // Check if it's an assignment (e.g., string name = "Hello";)
+        else if (tokens.length == 5 && tokens[2].equals("=") && tokens[4].equals(";")) {
+            String variableName = tokens[1];
+            String value = tokens[3];
+
+            // Check if the value is a valid string (starts and ends with double quotes)
+            if (value.matches("\"[^\"]*\"")) {
+                String assignedValue = value.substring(1, value.length() - 1); // Remove the surrounding quotes
+
+                literalTable.addLiteral(assignedValue);
+
+                String type = "string";  // Type of the variable
+                String scope = "global";  // Default scope (adjust as necessary)
+                symbolTable.addEntry(variableName, type, assignedValue, scope);
+                System.out.println("Assigned string: " + assignedValue + " to variable: " + variableName);
+            } else {
+                System.out.println("Syntax error: Invalid string value for variable " + variableName);
+            }
+        } else {
+            System.out.println("Syntax error: Invalid string declaration or assignment.");
+        }
+    }
+
 
     /**********************************************************
      * METHOD: handleInput(String[] tokens)                    *
@@ -319,24 +360,46 @@ public class Compiler {
             return;
         }
 
+        String variableType = symbolTable.getTypeByName(variableName);
+        if(variableType == null){
+            System.out.println("Error: Type for variable " +variableName+ " is unknown");
+            return;
+        }
+
         // Prompt for user input
         Scanner scanner = new Scanner(System.in);
         System.out.print("=> ");
-        int value = scanner.nextInt();
+        Object value = null;
 
-        Integer literalID = literalTable.getLiteralID(value);
-        if(literalID == null && literalID != -1){
-            System.out.println("Literal value " + value + " already exists in the Literal table with the ID of " + literalID);
-        }else{
-            if(literalID == null || literalID == -1)  {
-                literalID = literalTable.addLiteral(value);
-                System.out.println("Added literal value " + value + " with ID " + literalID + " to the literal table.");
+        try{
+            switch(variableType){
+                case "integer":
+                    value = scanner.nextInt();
+                    break;
+                case "double":
+                    value = scanner.nextDouble();
+                    break;
+                case "boolean":
+                    value = scanner.nextBoolean();
+                    break;
+                case "string":
+                    value = scanner.nextLine();
+                    break;
+                default:
+                    System.out.println("Error: Unsupported variable type " + variableType);
+                    return;
             }
+        }catch(InputMismatchException e){
+            System.out.println("Error: Invalid input for variable type " + variableType);
+            return;
         }
 
         // Assign value to the variable
         symbolTable.updateValue(variableName, value);
         System.out.println("Assigned value " + value + " to variable " + variableName);
+
+        int literalID = literalTable.addLiteral(value);
+        System.out.println("Literal value " + value + " has been added with ID " + literalID);
 
         Integer inputID = keywordTable.get("input");
         Integer leftParenID = operatorTable.get("(");

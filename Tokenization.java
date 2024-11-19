@@ -23,7 +23,7 @@ import java.util.regex.Pattern;
 
 public class Tokenization {
 
-    private static final String TOKEN_REGEX = "\\d+\\.\\d+|\\w+|==|!=|<=|>=|[+\\-*/=(){}^<>.,?!:\"'\\[\\]]|\\d+|;";
+    private static final String TOKEN_REGEX = "\"[^\"]*\"|\\d+\\.\\d+|\\d+|\\w+|==|!=|<=|>=|[+\\-*/=(){}^<>.,?!:\"'\\[\\]]|;";
 
     /**********************************************************
      * METHOD: tokenize(String command) *
