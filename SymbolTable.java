@@ -54,8 +54,16 @@ public class SymbolTable {
             return type;
         }
 
+        public void setType(String value){
+            this.type = value;
+        }
+
         public Object getValue(){
             return value;
+        }
+
+        public void setValue(Object value){
+            this.value = value;
         }
 
         public String getScope(){
@@ -96,6 +104,12 @@ public class SymbolTable {
         }else{
             addBoolean(variableName, value);
         }
+    }
+
+    public void addOrUpdateDouble(String variableName, double value){
+        int id = nextId++;
+        table.put(id, new Entry(variableName, "double", value, "global"));
+        System.out.println("Added double variable: " +variableName+ " with value: " +value);
     }
 
     /**********************************************************

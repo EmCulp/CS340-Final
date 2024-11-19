@@ -23,7 +23,7 @@ import java.util.regex.Pattern;
 
 public class Tokenization {
 
-    private static final String TOKEN_REGEX = "\\w+|==|!=|<=|>=|[+\\-*/=(){}^<>.,?!:\"'\\[\\]]|\\d+|;";
+    private static final String TOKEN_REGEX = "\\d+\\.\\d+|\\w+|==|!=|<=|>=|[+\\-*/=(){}^<>.,?!:\"'\\[\\]]|\\d+|;";
 
     /**********************************************************
      * METHOD: tokenize(String command) *
@@ -68,10 +68,11 @@ public class Tokenization {
 
     // Helper method to identify token types (keywords, literals, operators, etc.)
     private static String getTokenType(String token) {
-        if (token.matches("\\d+")) return "Literal";
+        if (token.matches("\\d+\\.\\d+")) return "Literal (Double)";
+        if (token.matches("\\d+")) return "Literal (Integer)";
         if (token.equals("true") || token.equals("false")) return "BooleanLiteral";
         if (token.matches("[+\\-*/=(){}^<>.,?!:\"'\\[\\]]")) return "Operator";
-        if (token.matches("integer|input|print|boolean")) return "Keyword";
+        if (token.matches("integer|input|print|boolean|double")) return "Keyword";
         return "Identifier";
     }
 }

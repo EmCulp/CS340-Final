@@ -27,6 +27,7 @@ import java.util.Map;
 public class LiteralTable{
     private final Map<Integer, Integer> literalMap = new HashMap<>();
     private final Map<String, Integer> booleanLiteralMap = new HashMap<>();
+    private final Map<Integer, Double> doubleLiteralMap = new HashMap<>();
 
     private int nextLiteralID = 900;
     private int nextBooleanLiteralID = 1100;
@@ -106,6 +107,28 @@ public class LiteralTable{
         booleanLiteralMap.put(value, id);
     }
 
+    public void addDoubleLiteral(double value) {
+        // Assuming there's a mechanism to get the next available ID for literals
+        int id = nextLiteralID;  // Get next available ID
+        doubleLiteralMap.put(id, value);  // Add to the literal table
+        System.out.println("Added double literal: " + value + " with ID: " + id);
+    }
+
+    public int getDoubleLiteralID(double value) {
+        // Check if the double literal already exists
+        for (Map.Entry<Integer, Double> entry : doubleLiteralMap.entrySet()) {
+            if (entry.getValue().equals(value)) {
+                return entry.getKey(); // Return the existing ID if the value is already in the table
+            }
+        }
+
+        // If the double value is not already in the table, add it
+        int id = nextLiteralID++;  // Increment ID
+        doubleLiteralMap.put(id, value); // Store the value as a string
+        System.out.println("Added double literal: " + value + " with ID: " + id);
+        return id;
+    }
+
     /**********************************************************
      * METHOD: printTable()                                   *
      * DESCRIPTION:                                            *
@@ -121,6 +144,10 @@ public class LiteralTable{
         }
         System.out.println("Boolean Literal Table:");
         for (Map.Entry<String, Integer> entry : booleanLiteralMap.entrySet()) {
+            System.out.println("Value: " + entry.getKey() + ", ID: " + entry.getValue());
+        }
+        System.out.println("Double Literal Table:");
+        for (Map.Entry<Integer, Double> entry : doubleLiteralMap.entrySet()) {
             System.out.println("Value: " + entry.getKey() + ", ID: " + entry.getValue());
         }
     }

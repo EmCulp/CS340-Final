@@ -142,8 +142,10 @@ public class Compiler {
                 handlePrint(tokens);  // Handle print
             } else if(tokens[0].equals("boolean")) {
                 handleBoolean(tokens);
+            }else if(tokens[0].equals("double")) {
+                handleDouble(tokens);
             }else{
-                    System.out.println("Syntax error: Unrecognized command");
+                System.out.println("Syntax error: Unrecognized command");
             }
         } else {
             System.out.println("Syntax error: Command must end with a semicolon");
@@ -203,6 +205,48 @@ public class Compiler {
             System.out.println("Syntax error: Invalid variable declaration.");
         }
     }
+
+    private static void handleDouble(String[] tokens) {
+        if (tokens.length == 3 && tokens[0].equals("double")) {
+            String variableName = tokens[1].replace(";", "");  // Remove semicolon if present
+            System.out.println("Checking if variable exists: " + variableName + " => " + symbolTable.containsVariable(variableName));
+
+            if (!symbolTable.containsVariable(variableName)) {
+                // Add the double literal to the literal table if not already added
+                addDoubleLiteralIfNotExist(0.0);  // Default to 0.0
+                // Add the double variable with default value to the symbol table
+                symbolTable.addOrUpdateDouble(variableName, 0.0);  // Default value
+                System.out.println("Not in symbol table... Now added to Symbol Table: " + variableName);
+            } else {
+                System.out.println("Error: Variable " + variableName + " is already declared.");
+            }
+        } else if (tokens.length == 5 && tokens[0].equals("double") && tokens[2].equals("=")) {
+            String variableName = tokens[1];
+            double value = Double.parseDouble(tokens[3].replace(";", ""));  // Parse double value from token
+            System.out.println("Checking if variable exists: " + variableName + " => " + symbolTable.containsVariable(variableName));
+
+            if (!symbolTable.containsVariable(variableName)) {
+                // Add the double literal to the literal table if not already added
+                addDoubleLiteralIfNotExist(value);  // Add the literal value
+                // Add the double variable with the parsed value to the symbol table
+                symbolTable.addOrUpdateDouble(variableName, value);  // Add to symbol table with value
+                System.out.println("Added to Symbol Table with value: " + variableName + " = " + value);
+            } else {
+                System.out.println("Error: Variable " + variableName + " is already declared.");
+            }
+        } else {
+            System.out.println("Syntax error: Invalid double declaration or assignment.");
+        }
+    }
+
+    private static void addDoubleLiteralIfNotExist(double value) {
+        // Check if the double literal is already in the table
+        if (literalTable.getDoubleLiteralID(value) == 0.0) {
+            // Add the double literal to the table if it doesn't already exist
+            literalTable.addDoubleLiteral(value);  // Ensure this method is defined
+        }
+    }
+
 
     private static void handleBoolean(String[] tokens) {
         if (tokens.length == 3 && tokens[0].equals("boolean")) {
