@@ -96,28 +96,6 @@ public class SymbolTable {
         nextId++;
     }
 
-    public void addBoolean(String variableName, boolean value){
-        int id = nextId++;
-        Entry entry = new Entry(id, variableName, "boolean", value, "global");
-        table.put(id, entry);
-        System.out.println("Added " +variableName+ " to Symbol Table with ID " +id);
-    }
-
-    public void addOrUpdateBoolean(String variableName, boolean value){
-        if(containsVariable(variableName)){
-            updateValue(variableName, value);
-            System.out.println("Updated " +variableName+ " with new value: " +value);
-        }else{
-            addBoolean(variableName, value);
-        }
-    }
-
-    public void addOrUpdateDouble(String variableName, double value){
-        int id = nextId++;
-        table.put(id, new Entry(id, variableName, "double", value, "global"));
-        System.out.println("Added double variable: " +variableName+ " with value: " +value);
-    }
-
     /**********************************************************
      * METHOD: getValue(String name)                           *
      * DESCRIPTION:                                            *
@@ -159,14 +137,17 @@ public class SymbolTable {
 
     // Updates the value of a variable
     public void updateValue(String name, Object newValue) {
-        for(Map.Entry<Integer, Entry> entry : table.entrySet()){
-            if(entry.getValue().name.equals(name)){
+        for (Map.Entry<Integer, Entry> entry : table.entrySet()) {
+            System.out.println("Variable: " + entry.getValue().name + ", Value: " + entry.getValue().value);
+            if (entry.getValue().name.equals(name)) {
+                System.out.println("Updating " + name + " to new value: " + newValue);  // Debug print
                 entry.getValue().value = newValue;
                 return;
             }
         }
         throw new IllegalArgumentException("Variable '" + name + "' not found.");
     }
+
 
     /**********************************************************
      * METHOD: containsVariable(String name)                  *

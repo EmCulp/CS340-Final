@@ -112,7 +112,7 @@ public class Compiler {
             int tid = keywordTable.getTokenID(tokens[0]);
 
             if(tid == 103){
-                handleIfElse(tokenID, id);
+                handleIfElse(tokens, id);
                 return;
             }
 
@@ -122,6 +122,17 @@ public class Compiler {
                 handleWhileLoop(condiiton, blockTokens);
                 return;
             }
+
+            if (tid == 110 && tokens.length > 3 && !tokens[2].equals("integer")) {
+                handleForLoop(tokens);
+                return;
+            }
+
+            if(tid == 110 && tokens.length > 3 && tokens[2].equals("integer")){
+                handleForIntegerLoop(tokens);
+                return;
+            }
+
         }
 
         // Handle variable declaration or assignment, input, print, etc.
@@ -677,20 +688,17 @@ public class Compiler {
         // Tokenize the condition using your Tokenization class, which returns a String[]
         String[] conditionTokensArray = tokenizer.tokenize(condition); // Assuming tokenize returns a String[]
 
-        // Convert the String[] to a List<String>
-        List<String> conditionTokens = new ArrayList<>(Arrays.asList(conditionTokensArray));
-
         // Create a list of token IDs for the condition
         List<Integer> conditionTokenIDs = new ArrayList<>();
 
         // Get the token ID for each token in the condition
-        for (String token : conditionTokens) {
+        for (String token : conditionTokensArray) {
             int tokenID = getTokenID(token);  // Get the token ID for the token
             conditionTokenIDs.add(tokenID);   // Add the token ID to the list
         }
 
         // Loop until the condition evaluates to false
-        while (evaluator.evaluateCondition(conditionTokens, conditionTokenIDs)) {
+        while (evaluator.evaluateCondition(conditionTokensArray)) {
             System.out.println("Condition evaluated to true, executing block...");
 
             // Process the block of code (now as complete statements)
@@ -718,14 +726,18 @@ public class Compiler {
                         // Reset the StringBuilder for the next statement
                         statementBuilder.setLength(0);
 
-                        //MATH
+                        // MATH
                         if (fullStatement.contains("=")) {
                             String[] parts = fullStatement.split("=");  // Split by '='
                             String variableName = parts[0].trim();
                             String expression = parts[1].trim().replace(";", "");  // Extract the expression
 
-                            // Evaluate the right-hand side expression
-                            int newValue = (Integer) evaluator.evaluateExpression(expression);  // Evaluate expression like "a + 1"
+                            // Evaluate the right-hand side expression and cast the result to Double
+                            Object evaluatedValueObject = evaluator.evaluateExpression(expression); // Get the result as Object
+
+                            // Cast Object to Double, then convert it to int
+                            double evaluatedValue = (Double) evaluatedValueObject;  // Cast Object to Double
+                            int newValue = (int) evaluatedValue;  // Convert Double to int
 
                             // Update the symbol table with the new value
                             symbolTable.updateValue(variableName, newValue);
@@ -739,11 +751,9 @@ public class Compiler {
 
             // Re-tokenize and re-evaluate the condition
             conditionTokensArray = tokenizer.tokenize(condition); // Re-tokenize the condition
-            conditionTokens.clear();
-            conditionTokens.addAll(Arrays.asList(conditionTokensArray)); // Update the List with the new tokens
 
             conditionTokenIDs.clear();
-            for (String token : conditionTokens) {
+            for (String token : conditionTokensArray) {
                 conditionTokenIDs.add(getTokenID(token)); // Update the token IDs
             }
         }
@@ -761,25 +771,25 @@ public class Compiler {
      *             if there is an error evaluating the condition.
      **********************************************************/
 
-    public static void handleIfElse(List<String> tokens, List<Integer> tokenIDs) throws Exception {
+    public static void handleIfElse(String[] tokens, List<Integer> tokenIDs) throws Exception {
 
-        String firstToken = tokens.get(0).trim();
-        if(!keywordTable.contains(firstToken)){
+        String firstToken = tokens[0].trim();
+        if (!keywordTable.contains(firstToken)) {
             throw new Exception("Expected 'if' at the start of the if-else block, but found: " + firstToken);
         }
 
         // Find the index of the 'if' token
-        int ifIndex = tokens.indexOf("if");
+        int ifIndex = findIndex(tokens, "if");
 
         // Validate the if-else structure
         validateIfElseStructure(tokens, tokenIDs);
 
         // Find indices for condition parentheses
-        int startCondition = tokens.indexOf("(");
-        int endCondition = tokens.indexOf(")");
+        int startCondition = findIndex(tokens, "(");
+        int endCondition = findIndex(tokens, ")");
 
         System.out.println("startCondition: " + startCondition);
-        System.out.println("endCondition: " +endCondition);
+        System.out.println("endCondition: " + endCondition);
 
         // Validate parentheses presence and order
         if (startCondition < 0 || endCondition < 0 || endCondition <= startCondition || endCondition - startCondition <= 1) {
@@ -787,7 +797,7 @@ public class Compiler {
         }
 
         // Extract condition tokens safely
-        List<String> conditionTokens = tokens.subList(startCondition + 1, endCondition);
+        String[] conditionTokens = Arrays.copyOfRange(tokens, startCondition + 1, endCondition);
         List<Integer> conditionTokenIDs = tokenIDs.subList(startCondition + 1, endCondition);
 
         // Print debug info
@@ -799,24 +809,24 @@ public class Compiler {
 
         // Evaluate the condition
         Evaluator evaluator = new Evaluator(symbolTable, literalTable); // Assuming symbolTable is accessible
-        boolean conditionResult = evaluator.evaluateCondition(conditionTokens, conditionTokenIDs);
+        boolean conditionResult = evaluator.evaluateCondition(conditionTokens);
 
         // Proceed with if-else logic
-        int elseIndex = tokens.indexOf("else");
+        int elseIndex = findIndex(tokens, "else");
 
         // Find the opening and closing braces for the if block
-        int openBraceIndex = tokens.indexOf("{");
-        int closeBraceIndex = tokens.lastIndexOf("}");
+        int openBraceIndex = findIndex(tokens, "{");
+        int closeBraceIndex = findLastIndex(tokens, "}");
 
         if (openBraceIndex < 0 || closeBraceIndex < 0 || closeBraceIndex <= openBraceIndex) {
             throw new Exception("Invalid block structure: missing or mismatched braces");
         }
 
         // Extract tokens for the if block
-        List<String> ifTokens = tokens.subList(openBraceIndex + 1, closeBraceIndex);
+        String[] ifTokens = Arrays.copyOfRange(tokens, openBraceIndex + 1, closeBraceIndex);
 
         // Handle the optional else block if present
-        List<String> elseTokens = new ArrayList<>();
+        String[] elseTokens = new String[0];
         List<Integer> elseTokenIDs = new ArrayList<>();
         if (elseIndex != -1) {
             // Find the opening and closing braces specifically for the else block
@@ -824,8 +834,8 @@ public class Compiler {
             int elseCloseBraceIndex = -1;
 
             // Find the opening brace for the 'else' block
-            for (int i = elseIndex; i < tokens.size(); i++) {
-                if (tokens.get(i).equals("{")) {
+            for (int i = elseIndex; i < tokens.length; i++) {
+                if (tokens[i].equals("{")) {
                     elseOpenBraceIndex = i;
                     break;
                 }
@@ -833,8 +843,8 @@ public class Compiler {
 
             // Find the closing brace for the 'else' block, after the opening brace
             if (elseOpenBraceIndex != -1) {
-                for (int i = elseOpenBraceIndex + 1; i < tokens.size(); i++) {
-                    if (tokens.get(i).equals("}")) {
+                for (int i = elseOpenBraceIndex + 1; i < tokens.length; i++) {
+                    if (tokens[i].equals("}")) {
                         elseCloseBraceIndex = i;
                         break;
                     }
@@ -843,188 +853,103 @@ public class Compiler {
 
             // Extract tokens for the else block if the braces were found
             if (elseOpenBraceIndex != -1 && elseCloseBraceIndex != -1 && elseCloseBraceIndex > elseOpenBraceIndex) {
-                elseTokens = tokens.subList(elseOpenBraceIndex + 1, elseCloseBraceIndex);
+                elseTokens = Arrays.copyOfRange(tokens, elseOpenBraceIndex + 1, elseCloseBraceIndex);
                 elseTokenIDs = tokenIDs.subList(elseOpenBraceIndex, elseCloseBraceIndex);
             }
         }
 
-
         // Execute the appropriate block based on the evaluated condition
         if (conditionResult) {
-            List<String> currentCommandTokens = new ArrayList<>();
-            String methodName = ""; // Variable to store the method name
+            processBlock(ifTokens, tokenIDs, evaluator);
+        } else {
+            processBlock(elseTokens, tokenIDs, evaluator);
+        }
+    }
 
-            // Define the valid methods
-            Set<String> methods = new HashSet<>(Arrays.asList("input", "print"));
-
-            // Print the entire ifTokens to debug
-            System.out.println("Tokens in 'if' block: " + ifTokens);
-
-            // Check if the first token is a valid method name
-            if (ifTokens.size() > 0) {
-                firstToken = ifTokens.get(0).trim();
-
-                // Check if the first token is a valid method name from the 'methods' list
-                if (methods.contains(firstToken)) {
-                    methodName = firstToken;  // Capture the method name (e.g., "input" or "print")
-                    System.out.println("Method detected: " + methodName);  // Debugging
-
-                    // Add the method to the current command tokens
-                    currentCommandTokens.add(methodName);
-
-                    boolean parenthesisOpened = false;
-
-                    // Iterate through the remaining tokens inside the 'if' block for arguments
-                    for (int i = 1; i < ifTokens.size(); i++) {
-                        String token = ifTokens.get(i).trim();  // Trim any extra spaces
-                        System.out.println("Processing token: " + token);
-
-                        // Only add the opening parenthesis once
-                        if (token.equals("(") && !parenthesisOpened) {
-                            currentCommandTokens.add(token);  // Add the opening parenthesis
-                            parenthesisOpened = true;  // Flag to indicate parentheses are opened
-                            System.out.println("Adding opening parenthesis: " + token);
-                            continue;  // Skip the token here as it is already processed
-                        }
-
-                        // If parentheses are opened, add tokens to the list as part of the method's arguments
-                        if (parenthesisOpened) {
-                            if (!token.equals(")") && !token.equals(";")) {
-                                currentCommandTokens.add(token);  // Add argument token
-                                System.out.println("Adding argument token: " + token);
-                            }
-                        }
-
-                        // Check for closing parenthesis, but only add it once
-                        if (token.equals(")") && parenthesisOpened) {
-                            currentCommandTokens.add(token);  // Add closing parenthesis
-                            parenthesisOpened = false;  // Flag to close parentheses
-                            System.out.println("Adding closing parenthesis: " + token);
-                        }
-
-                        // Check for semicolon indicating the end of the method call
-                        if (token.equals(";")) {
-                            // We add the semicolon only once, no extra semicolon
-                            currentCommandTokens.add(token);  // Add semicolon to the list
-                            System.out.println("Adding semicolon token: " + token);
-                            break;  // End of the current command
-                        }
-                    }
-
-                    // Now, execute the collected command (i.e., method and arguments)
-                    String[] commandArray = currentCommandTokens.toArray(new String[0]);
-                    executeCommand(commandArray);
-
-                    // Reset flags for next method handling
-                    currentCommandTokens.clear();
-                } else {
-                    // Check if the tokens represent a math operation (e.g., "x = x + 5;")
-                    firstToken = ifTokens.get(0).trim();
-                    if (firstToken.matches("[a-zA-Z_][a-zA-Z0-9_]*") && ifTokens.get(1).equals("=")) {
-                        // It's an assignment: "x = x + 5"
-                        String leftOperand = firstToken; // e.g., "x"
-                        String operator = ifTokens.get(1); // "="
-                        String rightOperand = String.join(" ", ifTokens.subList(2, ifTokens.size() - 1)); // e.g., "x + 5"
-                        System.out.println("Processing math operation: " + leftOperand + " " + operator + " " + rightOperand);
-
-                        // Evaluate the right-hand side expression (like "x + 5")
-                        int rightValue = (Integer) evaluator.evaluate(rightOperand); // Implement this method to evaluate the math
-
-                        // Update the variable with the new value
-                        symbolTable.updateValue(leftOperand, rightValue); // Implement this method to update the symbol table
-
-                        System.out.println("Updated " + leftOperand + " to " + rightValue);
-                    }
-                }
-            } else {
-                System.out.println("No tokens to process.");
+    // Helper method to find the index of a token in the array
+    private static int findIndex(String[] tokens, String token) {
+        for (int i = 0; i < tokens.length; i++) {
+            if (tokens[i].equals(token)) {
+                return i;
             }
-        }else{
-            List<String> currentCommandTokens = new ArrayList<>();
-            String methodName = ""; // Variable to store the method name
+        }
+        return -1; // Token not found
+    }
 
-            // Define the valid methods
-            Set<String> methods = new HashSet<>(Arrays.asList("input", "print"));
+    // Helper method to find the last index of a token in the array
+    private static int findLastIndex(String[] tokens, String token) {
+        for (int i = tokens.length - 1; i >= 0; i--) {
+            if (tokens[i].equals(token)) {
+                return i;
+            }
+        }
+        return -1; // Token not found
+    }
 
-            // Print the entire ifTokens to debug
-            System.out.println("Tokens in 'else' block: " + elseTokens);
+    // Method to process a block of tokens (either if or else)
+    private static void processBlock(String[] blockTokens, List<Integer> tokenIDs, Evaluator evaluator) throws Exception {
+        List<String> currentCommandTokens = new ArrayList<>();
+        String firstToken = ""; // Variable to store the method name
 
-            // Check if the first token is a valid method name
-            if (elseTokens.size() > 0) {
-                firstToken = elseTokens.get(0).trim();
+        // Define the valid methods
+        Set<String> methods = new HashSet<>(Arrays.asList("input", "print"));
 
-                // Check if the first token is a valid method name from the 'methods' list
-                if (methods.contains(firstToken)) {
-                    methodName = firstToken;  // Capture the method name (e.g., "input" or "print")
-                    System.out.println("Method detected: " + methodName);  // Debugging
+        // Print the entire blockTokens to debug
+        System.out.println("Tokens in block: " + Arrays.toString(blockTokens));
 
-                    // Add the method to the current command tokens
-                    currentCommandTokens.add(methodName);
+        // Check if the first token is a valid method name
+        if (blockTokens.length > 0) {
+            firstToken = blockTokens[0].trim();
 
-                    boolean parenthesisOpened = false;
+            // Check if the first token is a valid method name from the 'methods' list
+            if (methods.contains(firstToken)) {
+                firstToken = blockTokens[0].trim();  // Capture the method name
+                System.out.println("Method detected: " + firstToken);
 
-                    // Iterate through the remaining tokens inside the 'if' block for arguments
-                    for (int i = 1; i < elseTokens.size(); i++) {
-                        String token = elseTokens.get(i).trim();  // Trim any extra spaces
-                        System.out.println("Processing token: " + token);
+                // Add the method to the current command tokens
+                currentCommandTokens.add(firstToken);
 
-                        // Only add the opening parenthesis once
-                        if (token.equals("(") && !parenthesisOpened) {
-                            currentCommandTokens.add(token);  // Add the opening parenthesis
-                            parenthesisOpened = true;  // Flag to indicate parentheses are opened
-                            System.out.println("Adding opening parenthesis: " + token);
-                            continue;  // Skip the token here as it is already processed
-                        }
+                boolean parenthesisOpened = false;
 
-                        // If parentheses are opened, add tokens to the list as part of the method's arguments
-                        if (parenthesisOpened) {
-                            if (!token.equals(")") && !token.equals(";")) {
-                                currentCommandTokens.add(token);  // Add argument token
-                                System.out.println("Adding argument token: " + token);
-                            }
-                        }
+                // Iterate through the remaining tokens inside the block for arguments
+                for (int i = 1; i < blockTokens.length; i++) {
+                    String token = blockTokens[i].trim();
+                    System.out.println("Processing token: " + token);
 
-                        // Check for closing parenthesis, but only add it once
-                        if (token.equals(")") && parenthesisOpened) {
-                            currentCommandTokens.add(token);  // Add closing parenthesis
-                            parenthesisOpened = false;  // Flag to close parentheses
-                            System.out.println("Adding closing parenthesis: " + token);
-                        }
+                    // Only add the opening parenthesis once
+                    if (token.equals("(") && !parenthesisOpened) {
+                        currentCommandTokens.add(token);
+                        parenthesisOpened = true;
+                        System.out.println("Adding opening parenthesis: " + token);
+                        continue;
+                    }
 
-                        // Check for semicolon indicating the end of the method call
-                        if (token.equals(";")) {
-                            // We add the semicolon only once, no extra semicolon
-                            currentCommandTokens.add(token);  // Add semicolon to the list
-                            System.out.println("Adding semicolon token: " + token);
-                            break;  // End of the current command
+                    // Add argument tokens if parentheses are opened
+                    if (parenthesisOpened) {
+                        if (!token.equals(")") && !token.equals(";")) {
+                            currentCommandTokens.add(token);
+                            System.out.println("Adding argument token: " + token);
                         }
                     }
 
-                    // Now, execute the collected command (i.e., method and arguments)
-                    String[] commandArray = currentCommandTokens.toArray(new String[0]);
-                    executeCommand(commandArray);
+                    // Check for closing parenthesis, but only add it once
+                    if (token.equals(")") && parenthesisOpened) {
+                        currentCommandTokens.add(token);
+                        parenthesisOpened = false;
+                        System.out.println("Adding closing parenthesis: " + token);
+                    }
 
-                    // Reset flags for next method handling
-                    currentCommandTokens.clear();
-                } else {
-                    // Check if the tokens represent a math operation (e.g., "x = x + 5;")
-                    firstToken = elseTokens.get(0).trim();
-                    if (firstToken.matches("[a-zA-Z_][a-zA-Z0-9_]*") && elseTokens.get(1).equals("=")) {
-                        // It's an assignment: "x = x + 5"
-                        String leftOperand = firstToken; // e.g., "x"
-                        String operator = elseTokens.get(1); // "="
-                        String rightOperand = String.join(" ", elseTokens.subList(2, elseTokens.size() - 1)); // e.g., "x + 5"
-                        System.out.println("Processing math operation: " + leftOperand + " " + operator + " " + rightOperand);
-
-                        // Evaluate the right-hand side expression (like "x + 5")
-                        int rightValue = (Integer) evaluator.evaluate(rightOperand); // Implement this method to evaluate the math
-
-                        // Update the variable with the new value
-                        symbolTable.updateValue(leftOperand, rightValue); // Implement this method to update the symbol table
-
-                        System.out.println("Updated " + leftOperand + " to " + rightValue);
+                    // Check for semicolon indicating the end of the method call
+                    if (token.equals(";")) {
+                        currentCommandTokens.add(token);
+                        System.out.println("Adding semicolon token: " + token);
+                        break;
                     }
                 }
+
+                // Now, execute the collected command (i.e., method and arguments)
+                String[] commandArray = currentCommandTokens.toArray(new String[0]);
+                executeCommand(commandArray);
             }
         }
     }
@@ -1119,9 +1044,11 @@ public class Compiler {
      *             missing or "else" appears before "if".
      **********************************************************/
 
-    public static void validateIfElseStructure(List<String> tokens, List<Integer> tokenIDs) {
-        int ifIndex = tokens.indexOf("if");
-        int elseIndex = tokens.indexOf("else");
+    public static void validateIfElseStructure(String[] tokens, List<Integer> tokenIDs) {
+        List<String> tokenList = Arrays.asList(tokens);
+
+        int ifIndex = tokenList.indexOf("if");
+        int elseIndex = tokenList.indexOf("else");
 
         // If there's an if but no else, it's still a valid structure
         if (ifIndex == -1) {
@@ -1185,4 +1112,174 @@ public class Compiler {
         return blockTokens;
     }
 
+    public static void handleForLoop(String[] loopTokens) throws Exception {
+        // Step 1: Locate the parentheses
+        int openParenIndex = Arrays.asList(loopTokens).indexOf("(");
+        int closeParenIndex = Arrays.asList(loopTokens).indexOf(")");
+
+        if (openParenIndex == -1 || closeParenIndex == -1) {
+            throw new IllegalArgumentException("Malformed for loop: Missing parentheses.");
+        }
+
+        // Step 2: Extract the part inside the parentheses
+        String[] insideParentheses = Arrays.copyOfRange(loopTokens, openParenIndex + 1, closeParenIndex);
+
+        // Step 3: Parse initialization, condition, and increment
+        String insideParenthesesString = String.join(" ", insideParentheses);
+        String[] loopParts = insideParenthesesString.split(";");
+
+        if (loopParts.length != 3) {
+            throw new IllegalArgumentException("Malformed for loop: Expected initialization, condition, and increment.");
+        }
+
+        String initialization = loopParts[0].trim(); // Initialization: "i = 0"
+        String condition = loopParts[1].trim();      // Condition: "i < 5"
+        String increment = loopParts[2].trim();      // Increment: "i++"
+
+        // Step 4: Initialize the loop variable
+        String[] initParts = initialization.split("=");
+        if (initParts.length != 2) {
+            throw new IllegalArgumentException("Malformed initialization: " + initialization);
+        }
+        String loopVar = initParts[0].trim();  // e.g., "i"
+        int initValue = Integer.parseInt(initParts[1].trim());  // e.g., 0
+
+        // Add the loop variable to the symbol table
+        symbolTable.addEntry(loopVar, "int", initValue, "global");
+
+        // Step 5: Parse the condition
+        String[] conditionTokens = condition.split(" ");
+
+        // Step 6: Execute the loop
+        boolean conditionResult = evaluator.evaluateCondition(conditionTokens);
+        while (conditionResult) {
+            // Debugging: Check the value of 'i' before executing the loop body
+            System.out.println("Before loop body: i = " + symbolTable.getValueById(symbolTable.getIdByName(loopVar)));
+
+            // Execute the loop body
+            List<String> tokensList = Arrays.asList(loopTokens);
+            int start = tokensList.indexOf("{");
+            int end = tokensList.lastIndexOf("}");
+            String[] bodyTokens = tokensList.subList(start + 1, end).toArray(new String[0]);
+            executeLoopBody(bodyTokens);
+
+            // Call evaluateIncrementOrDecrement method to handle "i++" or similar increments
+            if (increment.contains("++")) {  // Check if it's an increment operation
+                String variableName;
+                if (increment.startsWith("++")) {
+                    variableName = increment.substring(2).trim();  // Extract variable name for "++i"
+                    evaluator.evaluateIncrementOrDecrement("++", variableName);
+                } else if (increment.endsWith("++")) {
+                    variableName = increment.substring(0, increment.length() - 2).trim();  // Extract variable name for "i++"
+                    evaluator.evaluateIncrementOrDecrement("++", variableName);
+                }
+            } else if (increment.contains("--")) {  // Check if it's a decrement operation
+                String variableName;
+                if (increment.startsWith("--")) {
+                    variableName = increment.substring(2).trim();  // Extract variable name for "--i"
+                    evaluator.evaluateIncrementOrDecrement("--", variableName);
+                } else if (increment.endsWith("--")) {
+                    variableName = increment.substring(0, increment.length() - 2).trim();  // Extract variable name for "i--"
+                    evaluator.evaluateIncrementOrDecrement("--", variableName);
+                }
+            } else {
+                throw new IllegalArgumentException("Invalid increment/decrement operation: " + increment);
+            }
+
+
+            // Recheck the condition after incrementing
+            conditionResult = evaluator.evaluateCondition(conditionTokens);
+        }
+    }
+
+    public static void handleForIntegerLoop(String[] tokens) throws Exception {
+        // Step 1: Ensure the tokens array has enough elements to parse a basic for loop
+        if (tokens.length < 13) {
+            throw new IllegalArgumentException("Invalid 'for' loop structure.");
+        }
+
+        // Step 2: Determine if the loop involves a new variable declaration or uses an existing one
+        String variableType = tokens[2];  // "integer" or "int"
+        String variableName = tokens[3];  // "i"
+        int startValue = 0;  // Default value
+        boolean isNewVariable = false;
+
+        // Case 1: Variable declaration inside the for loop (e.g., for(integer i = 0; ...))
+        if (tokens[2].equals("integer")) {
+            startValue = Integer.parseInt(tokens[5]);  // "0" (initial value)
+            symbolTable.addEntry(variableName, "int", startValue, "global");
+            isNewVariable = true;
+        }
+        // Case 2: Using an existing variable (e.g., integer i; for(i = 0; ...))
+        else if (symbolTable.containsVariable(variableName)) {
+            startValue = (int) symbolTable.getValueById(symbolTable.getIdByName(variableName));  // Get initial value from the symbol table
+        } else {
+            throw new IllegalArgumentException("Variable not declared: " + variableName);
+        }
+
+        // Step 3: Parse the loop condition (assume it's in the form "i < 10")
+        String leftOperand = tokens[7];  // "i"
+        String operator = tokens[8];     // "<"
+        int rightOperand = Integer.parseInt(tokens[9]); // "10"
+
+        // Prepare the condition tokens for evaluation
+        String[] conditionTokens = new String[] { leftOperand, operator, String.valueOf(rightOperand) };
+
+        // Step 4: Parse the increment (assume it's in the format "i++")
+        String incrementOperator = tokens[12];  // "i++"
+
+        // Step 5: Start the loop, evaluate the condition, and execute the body
+        for (int i = startValue; evaluator.evaluateCondition(conditionTokens); i++) {
+            // Execute the loop body (you can customize this part to handle loop body statements)
+            executeLoopBody(tokens);  // Replace with your method to process the loop body
+
+            // Increment the variable (e.g., i++)
+            evaluator.evaluateIncrementOrDecrement(incrementOperator, variableName);
+
+            // If it's a new variable, update it in the symbol table for each iteration
+            if (isNewVariable) {
+                symbolTable.updateValue(variableName, i);
+            }
+        }
+    }
+
+    private static void executeLoopBody(String[] loopTokens) throws Exception {
+        // The loopTokens array contains the body of the loop (e.g., "{ print(i); }")
+        StringBuilder statementBuilder = new StringBuilder();
+        boolean insideBrackets = false;
+
+        // Loop through the tokens and collect statements
+        for (String token : loopTokens) {
+            token = token.trim(); // Trim any whitespace
+
+            // Detect the opening bracket
+            if (token.equals("{")) {
+                insideBrackets = true;
+                continue; // Skip the opening bracket
+            }
+
+            // Detect the closing bracket, indicating end of loop body
+            if (token.equals("}")) {
+                insideBrackets = false;
+                break; // Exit loop body processing
+            }
+
+            // Only process tokens inside the loop body
+            if (insideBrackets && !token.isEmpty()) {
+                statementBuilder.append(token).append(" "); // Build the statement
+
+                // When a semicolon is encountered, execute the statement
+                if (token.equals(";")) {
+                    String fullStatement = statementBuilder.toString().trim(); // Full statement ends with ';'
+
+                    // Pass the statement to executeCommand
+                    System.out.println("Executing statement: " + fullStatement);
+                    executeCommand(fullStatement.split(" ")); // Split into tokens and execute
+
+                    // Reset the statement builder for the next statement
+                    statementBuilder.setLength(0);
+                }
+            }
+        }
+    }
 }

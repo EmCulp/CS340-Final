@@ -205,11 +205,11 @@ public class Evaluator {
      * EXCEPTIONS: None                                                      *
      **********************************************************/
 
-    public boolean evaluateCondition(List<String> tokens, List<Integer> tokenIDs) {
+    public boolean evaluateCondition(String[] tokens) {
         // Assume the tokens are in the form [a, ==, 0] or [a, !=, b]
-        String leftOperand = tokens.get(0);
-        String operator = tokens.get(1);
-        String rightOperand = tokens.get(2);
+        String leftOperand = tokens[0];
+        String operator = tokens[1];
+        String rightOperand = tokens[2];
 
         int leftValue = getValue(leftOperand);   // Get value from symbol table or literal
         int rightValue = getValue(rightOperand);
@@ -235,10 +235,10 @@ public class Evaluator {
     }
 
     private int getValue(String operand) {
-        // If the operand is a variable, get its value from the symbol table
-        if (symbolTable.containsVariable(operand)) {
-            Integer id = symbolTable.getIdByName(operand);
-            return (int) symbolTable.getValueById(id); // Assuming getValueById returns an int
+        if(isInteger(operand)){
+            return Integer.parseInt(operand);
+        }else if (symbolTable.containsVariable(operand)) {
+            return (int) symbolTable.getValueById(symbolTable.getIdByName(operand)); // Assuming getValueById returns an int
         }
         // If it's a literal (e.g., a number), return it directly
         else {
@@ -262,5 +262,36 @@ public class Evaluator {
         System.out.println("Checking if variable exists: " +token+ " => " +exists);
         return exists;  // Assuming symbolTable is a map of variable names to values
     }
+
+    public void evaluateIncrementOrDecrement(String operation, String variableName) throws Exception {
+        System.out.println("Evaluating operation: " + operation + " on variable: " + variableName);  // Debug print
+        Integer varId = symbolTable.getIdByName(variableName);
+
+        if (varId == null) {
+            throw new IllegalArgumentException("Variable '" + variableName + "' is not declared in the symbol table.");
+        }
+
+        int currentValue = (int) symbolTable.getValueById(varId);
+
+        // Perform the increment or decrement
+        if ("++".equals(operation)) {
+            currentValue++;
+        } else if ("--".equals(operation)) {
+            currentValue--;
+        } else {
+            throw new IllegalArgumentException("Invalid operation: " + operation);
+        }
+
+        // Update the symbol table
+        symbolTable.updateValue(variableName, currentValue);
+    }
+
+    public int getLatestValue(String variableName) throws Exception {
+        if (!symbolTable.containsVariable(variableName)) {
+            throw new IllegalArgumentException("Variable not found: " + variableName);
+        }
+        return (int) symbolTable.getValueById(symbolTable.getIdByName(variableName));
+    }
+
 
 }
