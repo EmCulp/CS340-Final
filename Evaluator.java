@@ -97,12 +97,24 @@ public class Evaluator {
     }
 
     private Object applyOperation(char op, Object b, Object a) {
-        if (!(a instanceof Integer) || !(b instanceof Integer)) {
-            throw new IllegalArgumentException("Only integer operations are supported.");
+        double x;
+        double y;
+
+        if (a instanceof Integer) {
+            x = ((Integer) a).doubleValue();
+        } else if (a instanceof Double) {
+            x = (Double) a;
+        } else {
+            throw new IllegalArgumentException("Unsupported data type for operand a. Only integer and double operations are supported.");
         }
 
-        int x = (int) a;
-        int y = (int) b;
+        if (b instanceof Integer) {
+            y = ((Integer) b).doubleValue();
+        } else if (b instanceof Double) {
+            y = (Double) b;
+        } else {
+            throw new IllegalArgumentException("Unsupported data type for operand b. Only integer and double operations are supported.");
+        }
 
         switch (op) {
             case '+':

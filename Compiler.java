@@ -594,22 +594,30 @@ public class Compiler {
                 // Evaluate the expression to get the value to assign
                 // Here, we assume you have a method in your Evaluator class that can evaluate the expression and generate code
                 Object result = evaluator.evaluate(valueExpression); // Use the Evaluator to calculate the value
-                int value = (Integer) result;
 
-                // Check if the value is in the literal table, if not, add it
-                int valueID = literalTable.addLiteral(value);
-                System.out.println("Encountered new literal " + value + " with id " + valueID);
+                if(result instanceof Integer){
+                    int intValue = (Integer) result;
+                    int valueID = literalTable.addLiteral(intValue);
+                    System.out.println("Encountered new literal " + intValue + " with ID " +valueID);
 
-                // Update the variable's value in the symbol table
-                symbolTable.updateValue(variableName, value);
+                    symbolTable.updateValue(variableName, intValue);
+                    System.out.println("Assigned integer value: " +intValue+ " to vairable " +variableName);
+                }else if(result instanceof Double){
+                    double doubleValue = (Double) result;
+                    int valueID = literalTable.addLiteral(doubleValue);
+                    System.out.println("Encountered new literal " + doubleValue + " with ID " +valueID);
 
-                System.out.println("Assigned value: " + value + " to variable '" + variableName + "' with ID " + symbolTable.getIdByName(variableName));
+                    symbolTable.updateValue(variableName, doubleValue);
+                    System.out.println("Assigned integer value: " +doubleValue+ " to vairable " +variableName);
+                }else{
+                    throw new IllegalArgumentException("Unsupported result type " + result.getClass().getName());
+                }
 
                 Integer assignTokenID = operatorTable.get("=");
                 Integer semicolonTokenID = operatorTable.get(";");
 
                 // Print TokenIDs (example, adjust according to your actual logic)
-                System.out.print("TokenIDs: " + symbolTable.getIdByName(variableName) + " " + assignTokenID + " " + valueID + " " + semicolonTokenID + " ");
+                System.out.print("TokenIDs: " + symbolTable.getIdByName(variableName) + " " + assignTokenID + " " + literalTable.getLiteralID(result) + " " + semicolonTokenID + " ");
                 System.out.println();
 
                 // Add code generators based on the operations performed
@@ -710,6 +718,7 @@ public class Compiler {
                         // Reset the StringBuilder for the next statement
                         statementBuilder.setLength(0);
 
+                        //MATH
                         if (fullStatement.contains("=")) {
                             String[] parts = fullStatement.split("=");  // Split by '='
                             String variableName = parts[0].trim();
