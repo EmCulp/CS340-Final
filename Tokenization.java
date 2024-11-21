@@ -17,6 +17,9 @@
  * CREDITS: This code was written with the help of ChatGPT. *
  * *
  *******************************************************************/
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -72,7 +75,23 @@ public class Tokenization {
         if (token.matches("\\d+")) return "Literal (Integer)";
         if (token.equals("true") || token.equals("false")) return "BooleanLiteral";
         if (token.matches("[+\\-*/=(){}^<>.,?!:\"'\\[\\]]")) return "Operator";
-        if (token.matches("integer|input|print|boolean|double")) return "Keyword";
+        if (token.matches("integer|input|print|boolean|double|string")) return "Keyword";
         return "Identifier";
+    }
+
+    public static String[] tokenizeFile(String filePath) throws IOException{
+        List<String> tokenizedLines = new ArrayList<>();
+
+        try(BufferedReader reader = new BufferedReader(new FileReader(filePath))){
+            String line;
+            while((line = reader.readLine()) != null){
+                if(!line.trim().isEmpty() && !line.startsWith("#")){
+                    String[] tokens = tokenize(line);
+                    tokenizedLines.addAll(Arrays.asList(tokens));
+                }
+            }
+        }
+
+        return tokenizedLines.toArray(new String[0]);
     }
 }

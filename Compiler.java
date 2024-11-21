@@ -24,6 +24,7 @@
  * CREDITS: This code was written with the help of ChatGPT.        *
  ******************************************************************/
 
+import java.io.*;
 import java.util.*;
 
 public class Compiler {
@@ -64,28 +65,57 @@ public class Compiler {
 
     public static void main(String[] args) throws Exception {
 
-        Scanner scanner = new Scanner(System.in);
-        System.out.println("Welcome to the Interpreter. Type '#' to quit.");
+        String inputFile = "C:\\Users\\emily\\OneDrive\\Documents\\Year3\\CS340\\Final - Compiler\\input.txt";
+        String outputFile = "C:\\Users\\emily\\OneDrive\\Documents\\Year3\\CS340\\Final - Compiler\\output.txt";
 
-        while (true) {
-            System.out.print(">>> ");
-            String command = scanner.nextLine();
+        try (BufferedReader reader = new BufferedReader(new FileReader(inputFile));
+             PrintWriter writer = outputFile != null ? new PrintWriter(new FileWriter(outputFile)) : null) {
 
-            // Exit condition
-            if (command.equalsIgnoreCase("#")) {
-                break;
+            System.out.println("Processing commands from file: " + inputFile);
+            if (writer != null) {
+                System.out.println("Writing output to file: " + outputFile);
             }
 
-            // Tokenize the command
-            String[] tokens = tokenizer.tokenize(command);
-            System.out.println("Tokens (main): " + String.join(" ", tokens));
+            String commandLine;
+            StringBuilder statement = new StringBuilder(); // To accumulate a full statement
 
-            // Execute the command based on tokens
-            compiler.executeCommand(tokens);
+            while ((commandLine = reader.readLine()) != null) {
+                // Skip empty lines and comments
+                if (commandLine.trim().isEmpty() || commandLine.startsWith("#")) {
+                    continue;
+                }
+
+                // Append the current line to the statement accumulator
+                statement.append(commandLine.trim()).append(" ");
+
+                // Check if the statement is complete (ends with a semicolon)
+                if (statement.toString().trim().endsWith(";")) {
+                    String completeCommand = statement.toString().trim();
+                    statement.setLength(0); // Clear the accumulator for the next statement
+
+                    // Tokenize the complete command
+                    String[] tokens = tokenizer.tokenize(completeCommand);
+                    String tokenString = "Tokens (main): " + String.join(" ", tokens);
+                    System.out.println(tokenString);
+
+                    if (writer != null) {
+                        writer.println(tokenString);
+                    }
+
+                    // Execute the complete command
+                    try {
+                        executeCommand(tokens);
+                    } catch (Exception e) {
+                        System.out.println("Error executing command: " + e.getMessage());
+                    }
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Error reading or writing files: " + e.getMessage());
         }
 
-        scanner.close();
-        symbolTable.display(); // Print the symbol table at the end
+        // Display the symbol and literal tables at the end
+        symbolTable.display();
         literalTable.printTable();
     }
 
@@ -605,23 +635,25 @@ public class Compiler {
                 // Evaluate the expression to get the value to assign
                 // Here, we assume you have a method in your Evaluator class that can evaluate the expression and generate code
                 Object result = evaluator.evaluate(valueExpression); // Use the Evaluator to calculate the value
+                String variableType = symbolTable.getTypeByName(variableName);
 
-                if(result instanceof Integer){
-                    int intValue = (Integer) result;
-                    int valueID = literalTable.addLiteral(intValue);
-                    System.out.println("Encountered new literal " + intValue + " with ID " +valueID);
-
-                    symbolTable.updateValue(variableName, intValue);
-                    System.out.println("Assigned integer value: " +intValue+ " to vairable " +variableName);
-                }else if(result instanceof Double){
-                    double doubleValue = (Double) result;
-                    int valueID = literalTable.addLiteral(doubleValue);
-                    System.out.println("Encountered new literal " + doubleValue + " with ID " +valueID);
-
-                    symbolTable.updateValue(variableName, doubleValue);
-                    System.out.println("Assigned integer value: " +doubleValue+ " to vairable " +variableName);
-                }else{
-                    throw new IllegalArgumentException("Unsupported result type " + result.getClass().getName());
+                if ("int".equals(variableType)) {
+                    if (result instanceof Double) {
+                        double doubleResult = (Double) result;
+                        if (doubleResult != Math.floor(doubleResult)) {
+                            throw new RuntimeException("Type mismatch: Cannot assign non-integer value to integer variable.");
+                        }
+                        result = (int) doubleResult;
+                    }
+                    if (result instanceof Integer) {
+                        symbolTable.updateValue(variableName, (Integer) result);
+                        System.out.println("Assigned integer value: " + result + " to variable: " + variableName);
+                    } else {
+                        throw new RuntimeException("Type mismatch: Unsupported value type.");
+                    }
+                } else {
+                    // Handle other types (e.g., double) if needed
+                    symbolTable.updateValue(variableName, result);
                 }
 
                 Integer assignTokenID = operatorTable.get("=");
@@ -1145,7 +1177,9 @@ public class Compiler {
         int initValue = Integer.parseInt(initParts[1].trim());  // e.g., 0
 
         // Add the loop variable to the symbol table
-        symbolTable.addEntry(loopVar, "int", initValue, "global");
+        if(!symbolTable.containsVariable(loopVar)){
+            symbolTable.addEntry(loopVar, "int", initValue, "global");
+        }
 
         // Step 5: Parse the condition
         String[] conditionTokens = condition.split(" ");
