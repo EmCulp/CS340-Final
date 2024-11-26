@@ -178,7 +178,7 @@ public class Evaluator {
         }
     }
 
-    public Object evaluateExpression(String expression) {
+    public Object evaluateExpression(String expression) throws Exception {
         Stack<Object> values = new Stack<>();
         Stack<Character> ops = new Stack<>();
 
@@ -227,58 +227,67 @@ public class Evaluator {
      * EXCEPTIONS: None                                                      *
      **********************************************************/
 
-    public boolean evaluateCondition(String[] tokens) {
-        // Assume the tokens are in the form [a, ==, 0] or [a, !=, b]
-        String leftOperand = tokens[0];
-        String operator = tokens[1];
-        String rightOperand = tokens[2];
-
-        // Get the values from the symbol table or parse literals if not in symbol table
-        Object leftValue = symbolTable.containsVariable(leftOperand) ? symbolTable.getValueByName(leftOperand) : Integer.parseInt(leftOperand);
-        Object rightValue = symbolTable.containsVariable(rightOperand) ? symbolTable.getValueByName(rightOperand) : Integer.parseInt(rightOperand);
-
-// Check the types of the values in the symbol table and convert to appropriate type
-        double left;
-        double right;
-
-// Get type of left operand from symbolTable, if it's a variable
-        String leftType = symbolTable.containsVariable(leftOperand) ? symbolTable.getTypeByName(leftOperand) : "int"; // Default to "int" for literals
-
-// Get type of right operand from symbolTable, if it's a variable
-        String rightType = symbolTable.containsVariable(rightOperand) ? symbolTable.getTypeByName(rightOperand) : "int"; // Default to "int" for literals
-
-// Handle left operand
-        if ("int".equals(leftType)) {
-            left = ((Integer) leftValue).doubleValue(); // Convert Integer to double
-        } else if ("double".equals(leftType)) {
-            left = (Double) leftValue; // Directly cast Double to double
-        } else {
-            throw new IllegalArgumentException("Unsupported type for leftOperand: " + leftType);
+    public boolean evaluateCondition(String[] conditionTokens) throws Exception {
+        if (conditionTokens.length < 3) {
+            throw new Exception("Invalid condition. Condition requires a left operand, operator, and right operand.");
         }
 
-// Handle right operand
-        if ("int".equals(rightType)) {
-            right = ((Integer) rightValue).doubleValue(); // Convert Integer to double
-        } else if ("double".equals(rightType)) {
-            right = (Double) rightValue; // Directly cast Double to double
-        } else {
-            throw new IllegalArgumentException("Unsupported type for rightOperand: " + rightType);
-        }
+        // Extract the left operand, operator, and right operand
+        String leftOperand = conditionTokens[0].trim();
+        String operator = conditionTokens[1].trim();
+        String rightOperand = conditionTokens[2].trim();
 
-        System.out.println("Left Value: " + left + ", Right Value: " + right);
+        // Get the values of the operands from the symbol table or as literals
+        Object leftValue = getValueFromOperand(leftOperand);
+        Object rightValue = getValueFromOperand(rightOperand);
 
+        // Convert operands to double for comparison
+        double left = convertToDouble(leftValue);
+        double right = convertToDouble(rightValue);
 
-
-
-        // Evaluate based on the operator
+        // Perform the comparison based on the operator
         switch (operator) {
-            case ">=": return left >= right;
-            case "<=": return left <= right;
-            case ">":  return left > right;
-            case "<":  return left < right;
-            case "==": return left == right;
-            case "!=": return left != right;
-            default: throw new IllegalArgumentException("Unsupported operator: " + operator);
+            case ">=":
+                return left >= right;
+            case "<=":
+                return left <= right;
+            case ">":
+                return left > right;
+            case "<":
+                return left < right;
+            case "==":
+                return left == right;
+            case "!=":
+                return left != right;
+            default:
+                throw new Exception("Unsupported operator: " + operator);
+        }
+    }
+
+    private Object getValueFromOperand(String operand) throws Exception {
+        if (symbolTable.containsVariable(operand)) {
+            return symbolTable.getValueByName(operand);
+        } else {
+            try {
+                return Integer.parseInt(operand);  // Try parsing as integer
+            } catch (NumberFormatException e1) {
+                try {
+                    return Double.parseDouble(operand);  // Try parsing as double
+                } catch (NumberFormatException e2) {
+                    throw new Exception("Invalid operand: " + operand);
+                }
+            }
+        }
+    }
+
+    // Convert operand to double if it's an Integer or Double
+    private double convertToDouble(Object value) throws Exception {
+        if (value instanceof Integer) {
+            return ((Integer) value).doubleValue();
+        } else if (value instanceof Double) {
+            return (Double) value;
+        } else {
+            throw new Exception("Unsupported operand type: " + value.getClass().getName());
         }
     }
 

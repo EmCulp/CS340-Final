@@ -26,9 +26,7 @@ import java.util.regex.Pattern;
 
 public class Tokenization {
 
-    private static final String TOKEN_REGEX = "\"[^\"]*\"|\\d+\\.\\d+|\\d+|\\w+|==|!=|<=|>=|\\+\\+|--|[+\\-*/=(){}^<>.,?!:\"'\\[\\]]|;";
-
-    private static int lineCounter = 0;
+    private static final String TOKEN_REGEX = "\"[^\"]*\"|\\d+\\.\\d+|\\d+|\\w+|>=|<=|==|!=|\\+\\+|--|[+\\-*/=(){}^<>.,?!:\"'\\[\\]]|;";
 
     /**********************************************************
      * METHOD: tokenize(String command) *
@@ -88,43 +86,5 @@ public class Tokenization {
         if (token.matches("[+\\-*/=(){}^<>.,?!:\"'\\[\\]]")) return "Operator";
         if (token.matches("integer|input|print|boolean|double|string")) return "Keyword";
         return "Identifier";
-    }
-
-    /**********************************************************
-     * METHOD: tokenizeFile(String filePath) *
-     * DESCRIPTION: Tokenizes commands from a file, handling multi-line input. *
-     * PARAMETERS: String filePath - the path to the input file *
-     * RETURN VALUE: String[] - an array of tokens from the file *
-     **********************************************************/
-    public static String[] tokenizeFile(String filePath) throws IOException {
-        List<String> tokenizedLines = new ArrayList<>();
-
-        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
-            StringBuilder multiLineBuffer = new StringBuilder();
-            String line;
-
-            while ((line = reader.readLine()) != null) {
-                lineCounter++;
-                System.out.println("Reading Line " + lineCounter + ": " + line);
-
-                // Add to buffer and check for complete commands (blocks or semicolons)
-                multiLineBuffer.append(line.trim()).append(" ");
-                if (line.contains(";") || line.contains("{") || line.contains("}")) {
-                    String processedLine = preprocessInput(multiLineBuffer.toString());
-                    String[] tokens = tokenize(processedLine);
-                    tokenizedLines.addAll(Arrays.asList(tokens));
-                    multiLineBuffer.setLength(0); // Clear buffer for the next block
-                }
-            }
-
-            // Process any remaining lines in the buffer
-            if (multiLineBuffer.length() > 0) {
-                String processedLine = preprocessInput(multiLineBuffer.toString());
-                String[] tokens = tokenize(processedLine);
-                tokenizedLines.addAll(Arrays.asList(tokens));
-            }
-        }
-
-        return tokenizedLines.toArray(new String[0]);
     }
 }

@@ -987,13 +987,35 @@ public class Compiler {
             throw new Exception("Invalid if condition syntax: missing or misplaced parentheses");
         }
 
+        int conditionTokenCount = endCondition - startCondition - 1;
+
+        // Initialize the conditionTokens array with the correct size
+        String[] conditionTokens = new String[conditionTokenCount];
+
+        // Manually extract tokens inside the parentheses into the array
+        int j = 0;
+        for (int i = startCondition + 1; i < endCondition; i++) {
+            String token = tokens[i].trim();
+            if (!token.isEmpty()) {
+                conditionTokens[j++] = token; // Add token to the array
+            }
+        }
+
+        System.out.println("Extracted Condition Tokens: ");
+        for(String token : conditionTokens){
+            System.out.println(token);
+        }
+
+        System.out.println("Condition Tokens (Full Array): " +Arrays.toString(conditionTokens));
+
         // Extract condition tokens
-        String[] conditionTokens = Arrays.copyOfRange(tokens, startCondition + 1, endCondition);
-        List<Integer> conditionTokenIDs = tokenIDs.subList(startCondition + 1, endCondition);
+//        String[] conditionTokens = Arrays.copyOfRange(tokens, startCondition + 1, endCondition);
+//        List<Integer> conditionTokenIDs = tokenIDs.subList(startCondition + 1, endCondition);
 
         // Evaluate the condition (true or false)
-        Evaluator evaluator = new Evaluator(symbolTable, literalTable);
         boolean conditionResult = evaluator.evaluateCondition(conditionTokens);
+
+        System.out.println("Evaluating 'if' condition: " + conditionResult);
 
         // Find the opening and closing braces for the if block
         int openBraceIndex = findNextToken(tokens, "{", endCondition);
