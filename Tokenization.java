@@ -28,6 +28,8 @@ public class Tokenization {
 
     private static final String TOKEN_REGEX = "\"[^\"]*\"|\\d+\\.\\d+|\\d+|\\w+|==|!=|<=|>=|\\+\\+|--|[+\\-*/=(){}^<>.,?!:\"'\\[\\]]|;";
 
+    private static int lineCounter = 0;
+
     /**********************************************************
      * METHOD: tokenize(String command) *
      * DESCRIPTION: Tokenizes a given command string into an array of tokens. *
@@ -45,14 +47,23 @@ public class Tokenization {
             // Skip empty spaces and handle comments (if needed)
             if (!token.isEmpty() && !token.equals(" ")) {
                 tokens.add(token);
-
-                // Enhanced debugging output for tokens
-                System.out.println("Matched token: " + token + " (type: " + getTokenType(token) + ")");
             }
         }
 
         System.out.println("Tokens: " + Arrays.toString(tokens.toArray()));
         return tokens.toArray(new String[0]);
+    }
+
+    /**********************************************************
+     * METHOD: preprocessInput(String input)                  *
+     * DESCRIPTION: Handles multi-line structures, ensuring   *
+     *              braces and constructs are parsed correctly*
+     * PARAMETERS: String input - Raw input string to process.*
+     * RETURN VALUE: String - Processed single-line string.   *
+     **********************************************************/
+    public static String preprocessInput(String input) {
+        // Merge multi-line constructs into a single line for consistent tokenization
+        return input.replaceAll("\\n\\s*\\{", " {").replaceAll("\\}\\s*\\n", "} ").replaceAll("\\s*\\n\\s*", " ");
     }
 
     /**********************************************************
@@ -79,16 +90,38 @@ public class Tokenization {
         return "Identifier";
     }
 
-    public static String[] tokenizeFile(String filePath) throws IOException{
+    /**********************************************************
+     * METHOD: tokenizeFile(String filePath) *
+     * DESCRIPTION: Tokenizes commands from a file, handling multi-line input. *
+     * PARAMETERS: String filePath - the path to the input file *
+     * RETURN VALUE: String[] - an array of tokens from the file *
+     **********************************************************/
+    public static String[] tokenizeFile(String filePath) throws IOException {
         List<String> tokenizedLines = new ArrayList<>();
 
-        try(BufferedReader reader = new BufferedReader(new FileReader(filePath))){
+        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+            StringBuilder multiLineBuffer = new StringBuilder();
             String line;
-            while((line = reader.readLine()) != null){
-                if(!line.trim().isEmpty() && !line.startsWith("#")){
-                    String[] tokens = tokenize(line);
+
+            while ((line = reader.readLine()) != null) {
+                lineCounter++;
+                System.out.println("Reading Line " + lineCounter + ": " + line);
+
+                // Add to buffer and check for complete commands (blocks or semicolons)
+                multiLineBuffer.append(line.trim()).append(" ");
+                if (line.contains(";") || line.contains("{") || line.contains("}")) {
+                    String processedLine = preprocessInput(multiLineBuffer.toString());
+                    String[] tokens = tokenize(processedLine);
                     tokenizedLines.addAll(Arrays.asList(tokens));
+                    multiLineBuffer.setLength(0); // Clear buffer for the next block
                 }
+            }
+
+            // Process any remaining lines in the buffer
+            if (multiLineBuffer.length() > 0) {
+                String processedLine = preprocessInput(multiLineBuffer.toString());
+                String[] tokens = tokenize(processedLine);
+                tokenizedLines.addAll(Arrays.asList(tokens));
             }
         }
 

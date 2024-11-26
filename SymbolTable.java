@@ -178,6 +178,28 @@ public class SymbolTable {
         return null;
     }
 
+    public Object getValueByName(String variableName) {
+        for (Map.Entry<Integer, Entry> entry : table.entrySet()) {
+            if (entry.getValue().getName().equals(variableName)) {
+                Object value = entry.getValue().getValue();
+
+                // Return primitive int if the value is Integer
+                if (value instanceof Integer) {
+                    return (Integer) value; // Safe unboxing
+                } else if (value instanceof Double) {
+                    return (Double) value;
+                } else if (value instanceof String) {
+                    return (String) value;
+                }
+
+                throw new IllegalArgumentException("Unsupported data type stored for variable: " + variableName);
+            }
+        }
+        throw new IllegalArgumentException("Variable '" + variableName + "' not found in the symbol table.");
+    }
+
+
+
     /**********************************************************
      * METHOD: display()                                    *
      * DESCRIPTION:                                            *

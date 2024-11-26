@@ -100,34 +100,51 @@ public class Evaluator {
         double x;
         double y;
 
+        // Convert operand 'a' to double if it's Integer or Double
         if (a instanceof Integer) {
             x = ((Integer) a).doubleValue();
         } else if (a instanceof Double) {
             x = (Double) a;
         } else {
-            throw new IllegalArgumentException("Unsupported data type for operand a. Only integer and double operations are supported.");
+            throw new IllegalArgumentException("Unsupported data type for operand a. Only Integer and Double are supported.");
         }
 
+        // Convert operand 'b' to double if it's Integer or Double
         if (b instanceof Integer) {
             y = ((Integer) b).doubleValue();
         } else if (b instanceof Double) {
             y = (Double) b;
         } else {
-            throw new IllegalArgumentException("Unsupported data type for operand b. Only integer and double operations are supported.");
+            throw new IllegalArgumentException("Unsupported data type for operand b. Only Integer and Double are supported.");
         }
 
+        // Perform the operation
+        double result;
         switch (op) {
             case '+':
-                return x + y;
+                result = x + y;
+                break;
             case '-':
-                return x - y;
+                result = x - y;
+                break;
             case '*':
-                return x * y;
+                result = x * y;
+                break;
             case '/':
                 if (y == 0) throw new ArithmeticException("Cannot divide by zero.");
-                return x / y;
+                result = x / y;
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported operator: " + op);
         }
-        return 0;
+
+        // Return result as Integer if both operands were Integer
+        if (a instanceof Integer && b instanceof Integer) {
+            return (int) result;
+        }
+
+        // Otherwise, return as Double
+        return result;
     }
 
     /**********************************************************
@@ -168,6 +185,8 @@ public class Evaluator {
         String[] tokens = expression.split("\\s+");
 
         for (String token : tokens) {
+            System.out.println("Processing Token: " +token);
+
             if (isInteger(token)) {
                 values.push(Integer.parseInt(token));
             } else if (symbolTable.containsVariable(token)) {
@@ -181,6 +200,9 @@ public class Evaluator {
                     values.push(applyOperation(ops.pop(), values.pop(), values.pop()));
                 }
                 ops.push(token.charAt(0));
+            }else if (token.equals("==") || token.equals("!=") || token.equals("<") || token.equals(">") ||
+                    token.equals("<=") || token.equals(">=")) {
+                return evaluateCondition(tokens); // Call your condition evaluation
             }
         }
 
@@ -211,26 +233,52 @@ public class Evaluator {
         String operator = tokens[1];
         String rightOperand = tokens[2];
 
-        int leftValue = getValue(leftOperand);   // Get value from symbol table or literal
-        int rightValue = getValue(rightOperand);
+        // Get the values from the symbol table or parse literals if not in symbol table
+        Object leftValue = symbolTable.containsVariable(leftOperand) ? symbolTable.getValueByName(leftOperand) : Integer.parseInt(leftOperand);
+        Object rightValue = symbolTable.containsVariable(rightOperand) ? symbolTable.getValueByName(rightOperand) : Integer.parseInt(rightOperand);
 
-        System.out.println("Left Value: " + leftValue + ", Right Value: " + rightValue);
+// Check the types of the values in the symbol table and convert to appropriate type
+        double left;
+        double right;
 
+// Get type of left operand from symbolTable, if it's a variable
+        String leftType = symbolTable.containsVariable(leftOperand) ? symbolTable.getTypeByName(leftOperand) : "int"; // Default to "int" for literals
+
+// Get type of right operand from symbolTable, if it's a variable
+        String rightType = symbolTable.containsVariable(rightOperand) ? symbolTable.getTypeByName(rightOperand) : "int"; // Default to "int" for literals
+
+// Handle left operand
+        if ("int".equals(leftType)) {
+            left = ((Integer) leftValue).doubleValue(); // Convert Integer to double
+        } else if ("double".equals(leftType)) {
+            left = (Double) leftValue; // Directly cast Double to double
+        } else {
+            throw new IllegalArgumentException("Unsupported type for leftOperand: " + leftType);
+        }
+
+// Handle right operand
+        if ("int".equals(rightType)) {
+            right = ((Integer) rightValue).doubleValue(); // Convert Integer to double
+        } else if ("double".equals(rightType)) {
+            right = (Double) rightValue; // Directly cast Double to double
+        } else {
+            throw new IllegalArgumentException("Unsupported type for rightOperand: " + rightType);
+        }
+
+        System.out.println("Left Value: " + left + ", Right Value: " + right);
+
+
+
+
+        // Evaluate based on the operator
         switch (operator) {
-            case "==":
-                return leftValue == rightValue;
-            case "!=":
-                return leftValue != rightValue;
-            case "<":
-                return leftValue < rightValue;
-            case ">":
-                return leftValue > rightValue;
-            case "<=":
-                return leftValue <= rightValue;
-            case ">=":
-                return leftValue >= rightValue;
-            default:
-                return false;  // Invalid operator
+            case ">=": return left >= right;
+            case "<=": return left <= right;
+            case ">":  return left > right;
+            case "<":  return left < right;
+            case "==": return left == right;
+            case "!=": return left != right;
+            default: throw new IllegalArgumentException("Unsupported operator: " + operator);
         }
     }
 
