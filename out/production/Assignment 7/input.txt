@@ -1,0 +1,18 @@
+integer x = 5;
+double pi = 3.14;
+string name = "Jacob";
+boolean isGay = true;
+
+if(x<10){
+  x=x+5;
+}else{
+  x=x+1;
+}
+
+integer a = 2;
+
+if(a >= 5){
+  print(a);
+}else{
+  a=a*75;
+}

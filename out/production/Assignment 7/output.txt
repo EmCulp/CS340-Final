@@ -1,0 +1,7 @@
+Tokens (main): integer x = 5 ;
+Tokens (main): double pi = 3.14 ;
+Tokens (main): string name = "Jacob" ;
+Tokens (main): boolean isGay = true ;
+Tokens (block): if ( x < 10 ) { x = x + 5 ; } else { x = x + 1 ; }
+Tokens (main): integer a = 2 ;
+Tokens (block): if ( a >= 5 ) { print ( a ) ; } else { a = a * 75 ; }
