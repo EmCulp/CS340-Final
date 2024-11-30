@@ -21,6 +21,7 @@
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 public class SymbolTable {
     private final Map<Integer, Entry> table; // Map to store variable names and their details
@@ -87,10 +88,6 @@ public class SymbolTable {
         this.nextId = 600; // Start IDs from 600
     }
 
-    public Entry get(String name){
-        return table.get(name);
-    }
-
     public void addEntry(String name, String type, Object value, String scope){
         table.put(nextId, new Entry(nextId, name, type, value, scope));
         nextId++;
@@ -137,15 +134,22 @@ public class SymbolTable {
 
     // Updates the value of a variable
     public void updateValue(String name, Object newValue) {
-        for (Map.Entry<Integer, Entry> entry : table.entrySet()) {
-            System.out.println("Variable: " + entry.getValue().name + ", Value: " + entry.getValue().value);
-            if (entry.getValue().name.equals(name)) {
-                System.out.println("Updating " + name + " to new value: " + newValue);  // Debug print
+        boolean variableUpdated = false;
+
+        for(Map.Entry<Integer, Entry> entry : table.entrySet()){
+            System.out.println("Checking Variable: " +entry.getValue().name + ", Current Value: " +entry.getValue().value);
+
+            if(entry.getValue().name.trim().equalsIgnoreCase(name.trim())){
+                System.out.println("Updating variable '" +name+ "' to new value: " +newValue);
                 entry.getValue().value = newValue;
-                return;
+                variableUpdated = true;
+                break;
             }
         }
-        throw new IllegalArgumentException("Variable '" + name + "' not found.");
+
+        if(!variableUpdated){
+            throw new IllegalArgumentException("Variable '" +name+ "' not found in the SymbolTable. Ensure it's declared");
+        }
     }
 
 
@@ -178,26 +182,14 @@ public class SymbolTable {
         return null;
     }
 
-    public Object getValueByName(String variableName) {
+    public Object get(String name) {
         for (Map.Entry<Integer, Entry> entry : table.entrySet()) {
-            if (entry.getValue().getName().equals(variableName)) {
-                Object value = entry.getValue().getValue();
-
-                // Return primitive int if the value is Integer
-                if (value instanceof Integer) {
-                    return (Integer) value; // Safe unboxing
-                } else if (value instanceof Double) {
-                    return (Double) value;
-                } else if (value instanceof String) {
-                    return (String) value;
-                }
-
-                throw new IllegalArgumentException("Unsupported data type stored for variable: " + variableName);
+            if (entry.getValue().name.equals(name)) {
+                return entry.getValue().value;
             }
         }
-        throw new IllegalArgumentException("Variable '" + variableName + "' not found in the symbol table.");
+        return null; // Return null if the variable name is not found
     }
-
 
 
     /**********************************************************

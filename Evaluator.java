@@ -178,6 +178,15 @@ public class Evaluator {
         }
     }
 
+    public boolean isDouble(String token){
+        try{
+            Double.parseDouble(token);
+            return true;
+        }catch(NumberFormatException e){
+            return false;
+        }
+    }
+
     public Object evaluateExpression(String expression) throws Exception {
         Stack<Object> values = new Stack<>();
         Stack<Character> ops = new Stack<>();
@@ -237,59 +246,104 @@ public class Evaluator {
         String operator = conditionTokens[1].trim();
         String rightOperand = conditionTokens[2].trim();
 
-        // Get the values of the operands from the symbol table or as literals
+        System.out.println("Evaluating condition: " + leftOperand + " " + operator + " " + rightOperand);
+
+        // Get the values of the operands from the SymbolTable or as literals
         Object leftValue = getValueFromOperand(leftOperand);
         Object rightValue = getValueFromOperand(rightOperand);
 
-        // Convert operands to double for comparison
-        double left = convertToDouble(leftValue);
-        double right = convertToDouble(rightValue);
+        // Handle null values in operands
+        if (leftValue == null || rightValue == null) {
+            throw new Exception("One or both operands are null: " + leftOperand + ", " + rightOperand);
+        }
 
-        // Perform the comparison based on the operator
+        System.out.println("Left Operand Value: " + leftValue + " (type: " + leftValue.getClass().getSimpleName() + ")");
+        System.out.println("Right Operand Value: " + rightValue + " (type: " + rightValue.getClass().getSimpleName() + ")");
+
+        // Perform the comparison
+        if (leftValue instanceof Integer && rightValue instanceof Integer) {
+            // Both operands are Integer
+            int left = (Integer) leftValue;
+            int right = (Integer) rightValue;
+            return evaluateNumericCondition(left, right, operator);
+        } else {
+            // At least one operand is a Double; convert both to Double
+            double left = convertToDouble(leftValue);
+            double right = convertToDouble(rightValue);
+            return evaluateNumericCondition(left, right, operator);
+        }
+    }
+
+    private boolean evaluateNumericCondition(double left, double right, String operator) throws Exception {
         switch (operator) {
             case ">=":
+                System.out.println("Evaluating >=: " + (left >= right));
                 return left >= right;
             case "<=":
+                System.out.println("Evaluating <=: " + (left <= right));
                 return left <= right;
             case ">":
+                System.out.println("Evaluating >: " + (left > right));
                 return left > right;
             case "<":
+                System.out.println("Evaluating <: " + (left < right));
                 return left < right;
             case "==":
+                System.out.println("Evaluating ==: " + (left == right));
                 return left == right;
             case "!=":
+                System.out.println("Evaluating !=: " + (left != right));
                 return left != right;
             default:
                 throw new Exception("Unsupported operator: " + operator);
         }
     }
 
-    private Object getValueFromOperand(String operand) throws Exception {
-        if (symbolTable.containsVariable(operand)) {
-            return symbolTable.getValueByName(operand);
-        } else {
-            try {
-                return Integer.parseInt(operand);  // Try parsing as integer
-            } catch (NumberFormatException e1) {
-                try {
-                    return Double.parseDouble(operand);  // Try parsing as double
-                } catch (NumberFormatException e2) {
-                    throw new Exception("Invalid operand: " + operand);
-                }
-            }
-        }
-    }
-
-    // Convert operand to double if it's an Integer or Double
     private double convertToDouble(Object value) throws Exception {
         if (value instanceof Integer) {
             return ((Integer) value).doubleValue();
         } else if (value instanceof Double) {
             return (Double) value;
         } else {
-            throw new Exception("Unsupported operand type: " + value.getClass().getName());
+            throw new Exception("Cannot convert value to Double: " + value + " (type: " + value.getClass().getSimpleName() + ")");
         }
     }
+
+
+    public Object getValueFromOperand(String operand) throws Exception {
+        // Check if the operand is a variable in the SymbolTable
+        if (symbolTable.containsVariable(operand)) {
+            Object value = symbolTable.get(operand);
+            if (value != null) {
+                System.out.println("Found variable: " + operand + " with value: " + value + " (type: " + value.getClass().getSimpleName() + ")");
+                return value;
+            } else {
+                throw new Exception("Variable " + operand + " exists in SymbolTable but has no assigned value.");
+            }
+        }
+
+        // Check if the operand is a literal in the LiteralTable
+        Object literalValue = literalTable.getLiteralValue(operand);
+        if (literalValue != null) {
+            System.out.println("Found literal: " + operand + " with value: " + literalValue + " (type: " + literalValue.getClass().getSimpleName() + ")");
+            return literalValue;
+        }
+
+        // Attempt to parse the operand directly as an integer or double
+        if (isInteger(operand)) {
+            int intValue = Integer.parseInt(operand);
+            System.out.println("Parsed operand as Integer: " + intValue);
+            return intValue;
+        } else if (isDouble(operand)) {
+            double doubleValue = Double.parseDouble(operand);
+            System.out.println("Parsed operand as Double: " + doubleValue);
+            return doubleValue;
+        }
+
+        // If operand is not a variable, literal, or valid numeric type, throw an exception
+        throw new Exception("Operand " + operand + " not found in SymbolTable or LiteralTable, and is not a valid numeric value.");
+    }
+
 
     private int getValue(String operand) {
         if(isInteger(operand)){

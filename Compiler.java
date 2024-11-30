@@ -116,7 +116,7 @@ public class Compiler {
 
                         // Execute the block
                         try {
-                            processBlock(blockTokens); // Delegate to processBlock
+                            executeCommand(blockTokens); // Delegate to processBlock
                         } catch (Exception e) {
                             System.out.println("Error processing block: " + e.getMessage());
                         }
@@ -685,6 +685,10 @@ public class Compiler {
                     if (result instanceof Integer) {
                         symbolTable.updateValue(variableName, (Integer) result);
                         System.out.println("Assigned integer value: " + result + " to variable: " + variableName);
+
+                        // Add to literal table after computation
+                        int literalID = literalTable.addLiteral((Integer) result);
+                        System.out.println("Encountered new literal " + result + " with id " + literalID);
                     } else {
                         throw new RuntimeException("Type mismatch: Unsupported value type.");
                     }
@@ -840,245 +844,102 @@ public class Compiler {
      *             if there is an error evaluating the condition.
      **********************************************************/
 
-//    public static void handleIfElse(String[] tokens, List<Integer> tokenIDs) throws Exception {
-//
-//        String firstToken = tokens[0].trim();
-//        if (!keywordTable.contains(firstToken)) {
-//            throw new Exception("Expected 'if' at the start of the if-else block, but found: " + firstToken);
-//        }
-//
-//        // Find the index of the 'if' token
-//        int ifIndex = findIndex(tokens, "if");
-//
-//        // Validate the if-else structure
-//        validateIfElseStructure(tokens, tokenIDs);
-//
-//        // Find indices for condition parentheses
-//        int startCondition = findIndex(tokens, "(");
-//        int endCondition = findIndex(tokens, ")");
-//
-//        System.out.println("startCondition: " + startCondition);
-//        System.out.println("endCondition: " + endCondition);
-//
-//        // Validate parentheses presence and order
-//        if (startCondition < 0 || endCondition < 0 || endCondition <= startCondition || endCondition - startCondition <= 1) {
-//            throw new Exception("Invalid if condition syntax: missing or misplaced parentheses");
-//        }
-//
-//        // Extract condition tokens safely
-//        String[] conditionTokens = Arrays.copyOfRange(tokens, startCondition + 1, endCondition);
-//        List<Integer> conditionTokenIDs = tokenIDs.subList(startCondition + 1, endCondition);
-//
-//        // Print debug info
-//        System.out.print("Condition TokenIDs: ");
-//        for (Integer tokenID : conditionTokenIDs) {
-//            System.out.print(tokenID + " ");
-//        }
-//        System.out.println();
-//
-//        // Evaluate the condition
-//        Evaluator evaluator = new Evaluator(symbolTable, literalTable); // Assuming symbolTable is accessible
-//        boolean conditionResult = evaluator.evaluateCondition(conditionTokens);
-//
-//        // Proceed with if-else logic
-//        int elseIndex = findIndex(tokens, "else");
-//
-//        // Find the opening and closing braces for the if block
-//        int openBraceIndex = findIndex(tokens, "{");
-//        int closeBraceIndex = findLastIndex(tokens, "}");
-//
-//        if (openBraceIndex < 0 || closeBraceIndex < 0 || closeBraceIndex <= openBraceIndex) {
-//            throw new Exception("Invalid block structure: missing or mismatched braces");
-//        }
-//
-//        // Extract tokens for the if block
-//        String[] ifTokens = Arrays.copyOfRange(tokens, openBraceIndex + 1, closeBraceIndex);
-//
-//        // Handle the optional else block if present
-//        String[] elseTokens = new String[0];
-//        List<Integer> elseTokenIDs = new ArrayList<>();
-//        if (elseIndex != -1) {
-//            // Find the opening and closing braces specifically for the else block
-//            int elseOpenBraceIndex = -1;
-//            int elseCloseBraceIndex = -1;
-//
-//            // Find the opening brace for the 'else' block
-//            for (int i = elseIndex; i < tokens.length; i++) {
-//                if (tokens[i].equals("{")) {
-//                    elseOpenBraceIndex = i;
-//                    break;
-//                }
-//            }
-//
-//            // Find the closing brace for the 'else' block, after the opening brace
-//            if (elseOpenBraceIndex != -1) {
-//                for (int i = elseOpenBraceIndex + 1; i < tokens.length; i++) {
-//                    if (tokens[i].equals("}")) {
-//                        elseCloseBraceIndex = i;
-//                        break;
-//                    }
-//                }
-//            }
-//
-//            // Extract tokens for the else block if the braces were found
-//            if (elseOpenBraceIndex != -1 && elseCloseBraceIndex != -1 && elseCloseBraceIndex > elseOpenBraceIndex) {
-//                elseTokens = Arrays.copyOfRange(tokens, elseOpenBraceIndex + 1, elseCloseBraceIndex);
-//                elseTokenIDs = tokenIDs.subList(elseOpenBraceIndex, elseCloseBraceIndex);
-//            }
-//        }
-//
-//        // Execute the appropriate block based on the evaluated condition
-//        if (conditionResult) {
-//            processBlock(ifTokens, tokenIDs, evaluator);
-//        } else {
-//            processBlock(elseTokens, tokenIDs, evaluator);
-//        }
-//    }
+    public static void handleIfElse(String[] tokens, List<Integer> tokenIDs) throws Exception {
+        System.out.println("Entered handleIfElse...");
 
-    // Helper method to find the index of a token in the array
+        // Ensure the first token is 'if'
+        if (!tokens[0].trim().equals("if")) {
+            throw new Exception("Expected 'if' at the start of the if-else block, but found: " + tokens[0].trim());
+        }
 
-    public static int findBraceIndex(String[] tokens, int startIndex) {
-        int braceCount = 0;
+        // Validate and extract the condition
+        int startCondition = findIndex(tokens, "(");
+        int endCondition = findIndex(tokens, ")");
+        if (startCondition < 0 || endCondition < 0 || endCondition <= startCondition) {
+            throw new Exception("Invalid if condition syntax: missing or misplaced parentheses");
+        }
 
-        for (int i = startIndex; i < tokens.length; i++) {
-            String token = tokens[i].trim();
+        // Extract tokens for the condition
+        String[] conditionTokens = Arrays.copyOfRange(tokens, startCondition + 1, endCondition);
+        // Evaluate the condition
+        boolean conditionResult;
+        try {
+            conditionResult = evaluator.evaluateCondition(conditionTokens);
+            System.out.println("Condition evaluated successfully: " + conditionResult);
+        } catch (Exception e) {
+            System.err.println("Exception during condition evaluation: " + e.getMessage());
+            e.printStackTrace();
+            return; // or handle the exception as appropriate
+        }
 
-            // Check for opening brace '{'
-            if (token.equals("{")) {
-                braceCount++;
+        // Locate the 'if' block
+        int openIfBrace = findNextToken(tokens, "{", endCondition);
+        int closeIfBrace = findMatchingBrace(tokens, openIfBrace);
+        if (openIfBrace < 0 || closeIfBrace < 0) {
+            throw new Exception("Invalid if block structure: Missing braces");
+        }
+        String[] ifTokens = Arrays.copyOfRange(tokens, openIfBrace + 1, closeIfBrace);
+
+        // Check for the 'else' block
+        int elseIndex = findNextToken(tokens, "else", closeIfBrace + 1);
+        String[] elseTokens = new String[0]; // Default to an empty else block
+
+        if (elseIndex >= 0) {
+            int openElseBrace = findNextToken(tokens, "{", elseIndex);
+            int closeElseBrace = findMatchingBrace(tokens, openElseBrace);
+            if (openElseBrace < 0 || closeElseBrace < 0) {
+                throw new Exception("Invalid else block structure: Missing braces");
             }
+            elseTokens = Arrays.copyOfRange(tokens, openElseBrace + 1, closeElseBrace);
+            System.out.println("Extracted elseTokens: " + Arrays.toString(elseTokens));
+        }
 
-            // Check for closing brace '}'
-            if (token.equals("}")) {
+        // Debugging information
+        System.out.println("If tokens: " + Arrays.toString(ifTokens));
+        System.out.println("Else tokens: " + Arrays.toString(elseTokens));
+
+        // Execute the appropriate block
+        if (conditionResult) {
+            System.out.println("Executing if block...");
+            processBlock(ifTokens, 0, ifTokens.length - 1); // Directly process the 'if' block
+        } else if (elseTokens.length > 0) {
+            System.out.println("Executing else block...");
+            processBlock(elseTokens, 0, elseTokens.length - 1); // Directly process the 'else' block
+        } else {
+            System.out.println("No else block to execute.");
+        }
+    }
+
+    private static int findMatchingBrace(String[] tokens, int start) {
+        int braceCount = 1;
+        System.out.println("Finding matching brace starting at index: " + start);
+
+        for (int i = start + 1; i < tokens.length; i++) {
+            System.out.println("Checking token at index " + i + ": " + tokens[i]);
+            if (tokens[i].equals("{")) {
+                braceCount++;
+            } else if (tokens[i].equals("}")) {
                 braceCount--;
-
-                // If braceCount reaches 0, we've found the matching closing brace
+                System.out.println("Brace count: " + braceCount);
                 if (braceCount == 0) {
-                    return i;  // Return index of the closing brace
+                    System.out.println("Found matching brace at index: " + i);
+                    return i; // Matching closing brace found
                 }
             }
         }
 
-        // If no matching closing brace is found, return -1
+        System.out.println("No matching brace found");
         return -1;
-    }
-
-    public static void handleIfElse(String[] tokens, List<Integer> tokenIDs) throws Exception {
-        System.out.println("Entered HandleIfElse...");
-
-        String firstToken = tokens[0].trim();
-
-        // Ensure the first token is 'if'
-        if (!firstToken.equals("if")) {
-            throw new Exception("Expected 'if' at the start of the if-else block, but found: " + firstToken);
-        }
-
-        // Validate the if-else structure
-        validateIfElseStructure(tokens, tokenIDs);
-
-        System.out.println("Structure correct...");
-
-        // Find the indices for the condition parentheses
-        int startCondition = findIndex(tokens, "(");
-        int endCondition = findIndex(tokens, ")");
-
-        // Validate parentheses presence and order
-        if (startCondition < 0 || endCondition < 0 || endCondition <= startCondition || endCondition - startCondition <= 1) {
-            throw new Exception("Invalid if condition syntax: missing or misplaced parentheses");
-        }
-
-        int conditionTokenCount = endCondition - startCondition - 1;
-
-        // Initialize the conditionTokens array with the correct size
-        String[] conditionTokens = new String[conditionTokenCount];
-
-        // Manually extract tokens inside the parentheses into the array
-        int j = 0;
-        for (int i = startCondition + 1; i < endCondition; i++) {
-            String token = tokens[i].trim();
-            if (!token.isEmpty()) {
-                conditionTokens[j++] = token; // Add token to the array
-            }
-        }
-
-        System.out.println("Extracted Condition Tokens: ");
-        for(String token : conditionTokens){
-            System.out.println(token);
-        }
-
-        System.out.println("Condition Tokens (Full Array): " +Arrays.toString(conditionTokens));
-
-        // Extract condition tokens
-//        String[] conditionTokens = Arrays.copyOfRange(tokens, startCondition + 1, endCondition);
-//        List<Integer> conditionTokenIDs = tokenIDs.subList(startCondition + 1, endCondition);
-
-        // Evaluate the condition (true or false)
-        boolean conditionResult = evaluator.evaluateCondition(conditionTokens);
-
-        System.out.println("Evaluating 'if' condition: " + conditionResult);
-
-        // Find the opening and closing braces for the if block
-        int openBraceIndex = findNextToken(tokens, "{", endCondition);
-        int closeBraceIndex = findMatchingBrace(tokens, openBraceIndex+1);
-
-        if(openBraceIndex == -1 || closeBraceIndex == -1){
-            throw new Exception("Invalid if block structure: Missing braces");
-        }
-
-        // Extract tokens for the if block
-        String[] ifTokens = Arrays.copyOfRange(tokens, openBraceIndex + 1, closeBraceIndex);
-
-        // Extract tokens for the else block (if it exists)
-        int elseIndex = findNextToken(tokens, "else", closeBraceIndex+1);
-        String[] elseTokens = new String[0];
-        if (elseIndex != -1) {
-            int elseOpenBraceIndex = findBraceIndex(tokens, elseIndex + 1);
-            int elseCloseBraceIndex = findBraceIndex(tokens, elseOpenBraceIndex + 1);
-            if (elseOpenBraceIndex != -1 && elseCloseBraceIndex != -1) {
-                throw new Exception("Invalid else block structure: Missing braces");
-            }
-            elseTokens = Arrays.copyOfRange(tokens, elseOpenBraceIndex+1, elseCloseBraceIndex);
-        }
-
-        System.out.println("Condition Result: " +conditionResult);
-
-        // Execute the appropriate block based on the evaluated condition
-        if (conditionResult) {
-            System.out.println("Executing if block");
-            // If condition is true, execute the 'if' block
-            processBlock(ifTokens);
-        } else if (elseTokens.length > 0) {
-            System.out.println("Executing else block");
-            // If condition is false, execute the 'else' block
-            processBlock(elseTokens);
-        }else{
-            System.out.println("No ELSE block to execute");
-        }
     }
 
 
     private static int findIndex(String[] tokens, String token) {
         for (int i = 0; i < tokens.length; i++) {
-            if (tokens[i].equals(token)) {
+            if (tokens[i].trim().equals(token)) {
                 return i;
             }
         }
         return -1; // Token not found
-    }
-
-    private static int findMatchingBrace(String[] tokens, int start) {
-        int braceCount = 0;
-        for (int i = start; i < tokens.length; i++) {
-            if (tokens[i].equals("{")) {
-                braceCount++;
-            } else if (tokens[i].equals("}")) {
-                braceCount--;
-                if (braceCount == 0) {
-                    return i; // Found the matching closing brace
-                }
-            }
-        }
-        throw new IllegalArgumentException("Unmatched braces in token array");
     }
 
     private static int findNextToken(String[] tokens, String target, int start) {
@@ -1091,133 +952,22 @@ public class Compiler {
     }
 
     // Method to process a block of tokens (either if or else)
-    private static void processBlock(String[] tokens) throws Exception {
-        for (int i = 0; i < tokens.length; i++) {
-            String currentToken = tokens[i];
-            System.out.println("Processing Token: " + currentToken);
+    private static void processBlock(String[] tokens, int startBlock, int endBlock) throws Exception {
+        System.out.println("Processing block from " +startBlock+ " to " +endBlock);
 
-            // Handle variable assignment
-            if (isVariable(currentToken)) {
-                String variableName = currentToken;
-
-                // Check for assignment operator
-                if (i + 1 < tokens.length && tokens[i + 1].equals("=")) {
-                    // Extract the right-hand side expression (up to semicolon)
-                    int semicolonIndex = findIndex(tokens, ";");
-                    if (semicolonIndex == -1) {
-                        throw new Exception("Missing semicolon in assignment.");
-                    }
-
-                    String expression = String.join(" ", Arrays.copyOfRange(tokens, i + 2, semicolonIndex));
-                    System.out.println("Expression to evaluate: " + expression);
-
-                    // Evaluate the expression
-                    Evaluator evaluator = new Evaluator(symbolTable, literalTable);
-                    Object result = evaluator.evaluateExpression(expression);
-
-                    String expectedType = symbolTable.getTypeByName(variableName);
-                    if(expectedType == null){
-                        throw new Exception("Variable '" +variableName+ "' not declared");
-                    }
-
-                    String resultType = getResultType(result);
-                    if(!expectedType.equals(resultType)){
-                        throw new Exception("Type mismatch: Expected " + expectedType+ " but got " +resultType);
-                    }
-
-                    if(!getResultType(result).equals("unknown")){
-                        if(!literalTable.containsValue(result)){
-                            literalTable.addLiteral(result);
-                        }
-                    }
-
-                    // Update symbol table
-                    if (symbolTable.containsVariable(variableName)) {
-                        symbolTable.updateValue(variableName, result);
-                    } else {
-                        throw new Exception("Variable " + variableName + " not declared.");
-                    }
-
-                    // Skip processed tokens
-                    i = semicolonIndex;
-                }
-            }
-
-            // Handling the if-else condition
-            if (currentToken.equals("if")) {
-                // Extract the condition (tokens after 'if' and before opening parenthesis)
-                int openParenIndex = i + 1;
-                int closeParenIndex = findIndex(tokens, ")");
-                if (openParenIndex == -1 || closeParenIndex == -1) {
-                    throw new Exception("Missing parentheses for 'if' condition.");
-                }
-
-                // Extract the condition expression (tokens between '(' and ')')
-                String[] condition = Arrays.copyOfRange(tokens, openParenIndex + 1, closeParenIndex);
-                System.out.println("Evaluating 'if' condition: " + condition);
-
-                // Evaluate the condition
-                Evaluator evaluator = new Evaluator(symbolTable, literalTable);
-                boolean conditionResult = evaluator.evaluateCondition(condition);
-
-                // Process the corresponding block based on the condition's result
-                if (conditionResult) {
-                    // Process the block inside the 'if' statement
-                    int blockStart = closeParenIndex + 1;
-                    int blockEnd = findBlockEnd(tokens, blockStart);  // Implement findBlockEnd to find the end of the 'if' block
-                    String[] ifBlock = Arrays.copyOfRange(tokens, blockStart, blockEnd);
-                    processBlock(ifBlock);
-                    i = blockEnd - 1; // Update index to the end of the 'if' block
-                }
-
-                // If you want to handle an 'else' block, you'll need additional logic here.
-                break;
+        // This method processes a block of commands
+        int currentTokenStart = startBlock;
+        System.out.println("CurrentTokenStart: " +currentTokenStart);
+        for (int i = startBlock; i < endBlock+1; i++) {
+            System.out.println("Token at index " +i+ ": " +tokens[i]);
+            if (tokens[i].trim().equals(";")) {
+                // Extract the command tokens from start to semicolon
+                String[] commandTokens = Arrays.copyOfRange(tokens, currentTokenStart, i + 1);
+                System.out.println("Executing command: " + Arrays.toString(commandTokens));
+                executeCommand(commandTokens); // Execute the command
+                currentTokenStart = i + 1; // Move to the next command
             }
         }
-    }
-
-    private static String getResultType(Object result){
-        if(result instanceof Integer){
-            return "int";
-        }else if(result instanceof Double){
-            return "double";
-        }else if(result instanceof String){
-            return "string";
-        }else if(result instanceof Boolean){
-            return "boolean";
-        }
-        return "unknown";
-    }
-
-    private static int findBlockEnd(String[] tokens, int startIndex) throws Exception {
-        // Keep track of the number of opening braces to balance with closing braces
-        int openBraces = 0;
-
-        for (int i = startIndex; i < tokens.length; i++) {
-            String token = tokens[i];
-            if (token.equals("{")) {
-                openBraces++;
-            } else if (token.equals("}")) {
-                openBraces--;
-                if (openBraces == 0) {
-                    return i + 1;  // Found the closing brace, return the next token index
-                }
-            }
-        }
-
-        throw new Exception("Unmatched braces in block.");
-    }
-
-    public static boolean isVariable(String token){
-        return token != null && !keywordTable.contains(token) && !isOperator(token);
-    }
-
-    public static boolean isOperator(String token) {
-        // Check if the token is one of the common operators
-        return token.equals("+") || token.equals("-") || token.equals("*") || token.equals("/") ||
-                token.equals("=") || token.equals("==") || token.equals("!=") ||
-                token.equals("<") || token.equals(">") || token.equals("<=") || token.equals(">=") ||
-                token.equals("&&") || token.equals("||");
     }
 
     /**********************************************************
@@ -1293,37 +1043,6 @@ public class Compiler {
             return true;
         } catch (NumberFormatException e) {
             return false;
-        }
-    }
-
-    /**********************************************************
-     * METHOD: validateIfElseStructure(List<String> tokens, List<Integer> tokenIDs)
-     * DESCRIPTION: This method validates the structure of an "if-else" block. It checks for the presence
-     *              of both an "if" statement and an optional "else" statement. If an "else" statement exists,
-     *              it must appear after the "if" statement. If these conditions are violated, it throws an
-     *              IllegalArgumentException.
-     * PARAMETERS: List<String> tokens - The list of tokens to check for the structure.
-     *             List<Integer> tokenIDs - The list of token IDs (not used in the method, but included
-     *             for method signature consistency).
-     * RETURN VALUE: None
-     * EXCEPTIONS: Throws IllegalArgumentException if the structure is invalid, such as if "if" is
-     *             missing or "else" appears before "if".
-     **********************************************************/
-
-    public static void validateIfElseStructure(String[] tokens, List<Integer> tokenIDs) {
-        List<String> tokenList = Arrays.asList(tokens);
-
-        int ifIndex = tokenList.indexOf("if");
-        int elseIndex = tokenList.indexOf("else");
-
-        // If there's an if but no else, it's still a valid structure
-        if (ifIndex == -1) {
-            throw new IllegalArgumentException("No if statement found.");
-        }
-
-        // If 'else' exists, ensure it comes after 'if'
-        if (elseIndex != -1 && elseIndex < ifIndex) {
-            throw new IllegalArgumentException("Invalid if-else structure.");
         }
     }
 

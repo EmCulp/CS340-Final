@@ -1,0 +1,14 @@
+# Ignore compiled Java class files
+*.class
+
+# Ignore the entire 'out/production' directory (compiled output)
+out/
+
+# Ignore IDE-specific files and folders (IntelliJ IDEA)
+.idea/
+
+# Ignore specific text files
+*.txt
+
+# Ignore any other generated or output text files
+output.txt
