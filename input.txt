@@ -18,3 +18,13 @@ if(a >= 5){
 }else{
   a=a*75;
 }
+
+integer y;
+while(y < 5){
+  y=y+1;
+}
+
+integer i;
+for(i=0; i<5; i++){
+  print(i);
+}

@@ -203,7 +203,7 @@ public class Compiler {
         }
 
         // Handle variable declaration or assignment, input, print, etc.
-        if (tokens.length >= 3 && tokens[tokens.length - 1].equals(";")) {
+        if (tokens.length >= 3 && tokens[tokens.length - 1].trim().equals(";")) {
             if (tokens[0].equals("integer")) {
                 if (tokens.length == 3) {
                     handleVariableDeclaration(tokens);  // Variable declaration
@@ -755,23 +755,38 @@ public class Compiler {
      **********************************************************/
 
     public static void handleWhileLoop(String condition, List<String> blockTokens) throws Exception {
-        // Create an instance of Tokenization (if it's not already available)
-        Tokenization tokenizer = new Tokenization();
 
         // Tokenize the condition using your Tokenization class, which returns a String[]
+        System.out.println("Tokenizing condition: " + condition);
         String[] conditionTokensArray = tokenizer.tokenize(condition); // Assuming tokenize returns a String[]
 
         // Create a list of token IDs for the condition
         List<Integer> conditionTokenIDs = new ArrayList<>();
 
         // Get the token ID for each token in the condition
+        System.out.println("Getting token IDs for condition tokens...");
         for (String token : conditionTokensArray) {
             int tokenID = getTokenID(token);  // Get the token ID for the token
+            System.out.println("Token: " + token + ", Token ID: " + tokenID);
             conditionTokenIDs.add(tokenID);   // Add the token ID to the list
         }
 
         // Loop until the condition evaluates to false
-        while (evaluator.evaluateCondition(conditionTokensArray)) {
+        while (true) {
+            // Re-evaluate the condition before each loop iteration
+            System.out.println("\nRe-evaluating condition...");
+
+            // Re-tokenize and re-evaluate the condition to use updated values of variables
+            boolean conditionResult = evaluator.evaluateCondition(conditionTokensArray);
+
+            // Print condition evaluation result
+            System.out.println("Condition evaluated to " + (conditionResult ? "true" : "false"));
+
+            if (!conditionResult) {
+                System.out.println("Condition evaluated to false, exiting loop.");
+                break; // Exit the loop if condition evaluates to false
+            }
+
             System.out.println("Condition evaluated to true, executing block...");
 
             // Process the block of code (now as complete statements)
@@ -786,48 +801,37 @@ public class Compiler {
                     // If the token is a semicolon, execute the full statement
                     if (token.equals(";")) {
                         String fullStatement = statementBuilder.toString().trim();  // Build the full statement
-                        System.out.println("Executing statement: " + fullStatement + ";");
+                        System.out.println("Executing statement: " + fullStatement);
 
                         // Ensure the statement ends with a semicolon
                         if (!fullStatement.endsWith(";")) {
                             fullStatement += ";";
                         }
 
+                        String[] fullStatementTokens = tokenizer.tokenize(fullStatement);
+                        System.out.println("Tokenized statement: " + Arrays.toString(fullStatementTokens));
+
                         // Pass the complete statement to executeCommand
-                        executeCommand(new String[]{fullStatement});
+                        executeCommand(fullStatementTokens);
 
                         // Reset the StringBuilder for the next statement
                         statementBuilder.setLength(0);
 
-                        // MATH
-                        if (fullStatement.contains("=")) {
-                            String[] parts = fullStatement.split("=");  // Split by '='
-                            String variableName = parts[0].trim();
-                            String expression = parts[1].trim().replace(";", "");  // Extract the expression
-
-                            // Evaluate the right-hand side expression and cast the result to Double
-                            Object evaluatedValueObject = evaluator.evaluateExpression(expression); // Get the result as Object
-
-                            // Cast Object to Double, then convert it to int
-                            double evaluatedValue = (Double) evaluatedValueObject;  // Cast Object to Double
-                            int newValue = (int) evaluatedValue;  // Convert Double to int
-
-                            // Update the symbol table with the new value
-                            symbolTable.updateValue(variableName, newValue);
-                        }
                     }
                 }
             }
 
-            // After executing the block, check the condition again
-            System.out.println("Re-evaluating condition...");
+            // Re-tokenize the condition after executing the block to use the updated symbol table values
+            System.out.println("\nRe-tokenizing condition after block execution...");
+            conditionTokensArray = tokenizer.tokenize(condition); // Re-tokenize the condition with updated variable values
 
-            // Re-tokenize and re-evaluate the condition
-            conditionTokensArray = tokenizer.tokenize(condition); // Re-tokenize the condition
+            System.out.println("Updated condition tokens: " + Arrays.toString(conditionTokensArray));
 
             conditionTokenIDs.clear();
             for (String token : conditionTokensArray) {
-                conditionTokenIDs.add(getTokenID(token)); // Update the token IDs
+                int tokenID = getTokenID(token);
+                System.out.println("Updated Token: " + token + ", Token ID: " + tokenID);
+                conditionTokenIDs.add(tokenID); // Update the token IDs
             }
         }
     }

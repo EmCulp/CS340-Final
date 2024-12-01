@@ -7,3 +7,7 @@ Tokens (main): sum = 1 + 2 ;
 Tokens (block): if ( x < 10 ) { x = x + 5 ; } else { x = x + 1 ; }
 Tokens (main): integer a = 2 ;
 Tokens (block): if ( a >= 5 ) { print ( a ) ; } else { a = a * 75 ; }
+Tokens (main): integer y ;
+Tokens (block): while ( y < 5 ) { y = y + 1 ; }
+Tokens (main): integer i ;
+Tokens (block): for ( i = 0 ; i < 5 ; i ++ ) { print ( i ) ; }
