@@ -29,9 +29,6 @@ public class Evaluator {
     private static LiteralTable literalTable;
     private MIPSGenerator mipsGenerator;
 
-    public Evaluator(MIPSGenerator mipsGenerator){
-        this.mipsGenerator = mipsGenerator;
-    }
 
     /**********************************************************
      * CONSTRUCTOR: Evaluator(SymbolTable symbolTable)        *
@@ -40,9 +37,10 @@ public class Evaluator {
      * PARAMETERS: SymbolTable symbolTable - the symbol table *
      *              for accessing variables.                  *
      **********************************************************/
-    public Evaluator(SymbolTable symbolTable, LiteralTable literalTable) {
+    public Evaluator(SymbolTable symbolTable, LiteralTable literalTable, MIPSGenerator mipsGenerator) {
         this.symbolTable = symbolTable;
         this.literalTable = literalTable;
+        this.mipsGenerator = mipsGenerator;
     }
 
     /**********************************************************
@@ -92,7 +90,7 @@ public class Evaluator {
         return values.pop();
     }
 
-    private boolean isOperator(char c){
+    private boolean isOperator(char c) {
         return c == '+' || c == '-' || c == '*' || c == '/' || c == '^';
     }
 
@@ -138,6 +136,8 @@ public class Evaluator {
                 throw new IllegalArgumentException("Unsupported operator: " + op);
         }
 
+        mipsGenerator.generateArithmeticOperation(String.valueOf(op), x, y, result);
+
         // Return result as Integer if both operands were Integer
         if (a instanceof Integer && b instanceof Integer) {
             return (int) result;
@@ -147,27 +147,9 @@ public class Evaluator {
         return result;
     }
 
-    /**********************************************************
-     * METHOD: precedence(String operator)                    *
-     * DESCRIPTION: Returns the precedence of the given       *
-     *              operator.                                 *
-     * PARAMETERS: String operator - the operator whose       *
-     *             precedence is required.                    *
-     * RETURN VALUE: int - the precedence value of the        *
-     *              operator.                                 *
-     **********************************************************/
-
     private int precedence(char op) {
         return OPERATOR_PRECEDENCE.getOrDefault(op, 0);
     }
-
-    /**********************************************************
-     * METHOD: isInteger(String token)                        *
-     * DESCRIPTION: Checks if the given token is an integer.  *
-     * PARAMETERS: String token - the token to check.         *
-     * RETURN VALUE: boolean - true if the token is an integer*
-     *              otherwise false.                          *
-     **********************************************************/
 
     public boolean isInteger(String token) {
         try {
@@ -178,48 +160,13 @@ public class Evaluator {
         }
     }
 
-    public boolean isDouble(String token){
-        try{
+    public boolean isDouble(String token) {
+        try {
             Double.parseDouble(token);
             return true;
-        }catch(NumberFormatException e){
+        } catch (NumberFormatException e) {
             return false;
         }
-    }
-
-    public Object evaluateExpression(String expression) throws Exception {
-        Stack<Object> values = new Stack<>();
-        Stack<Character> ops = new Stack<>();
-
-        String[] tokens = expression.split("\\s+");
-
-        for (String token : tokens) {
-            System.out.println("Processing Token: " +token);
-
-            if (isInteger(token)) {
-                values.push(Integer.parseInt(token));
-            } else if (symbolTable.containsVariable(token)) {
-                Integer id = symbolTable.getIdByName(token);
-                if (id != null) {
-                    Object value = symbolTable.getValueById(id);
-                    values.push(value);
-                }
-            } else if (isOperator(token.charAt(0))) {
-                while (!ops.isEmpty() && precedence(ops.peek()) >= precedence(token.charAt(0))) {
-                    values.push(applyOperation(ops.pop(), values.pop(), values.pop()));
-                }
-                ops.push(token.charAt(0));
-            }else if (token.equals("==") || token.equals("!=") || token.equals("<") || token.equals(">") ||
-                    token.equals("<=") || token.equals(">=")) {
-                return evaluateCondition(tokens); // Call your condition evaluation
-            }
-        }
-
-        while (!ops.isEmpty()) {
-            values.push(applyOperation(ops.pop(), values.pop(), values.pop()));
-        }
-
-        return values.pop();
     }
 
 
@@ -260,14 +207,27 @@ public class Evaluator {
         System.out.println("Left Operand Value: " + leftValue + " (type: " + leftValue.getClass().getSimpleName() + ")");
         System.out.println("Right Operand Value: " + rightValue + " (type: " + rightValue.getClass().getSimpleName() + ")");
 
-        // Perform the comparison
+        // Check for valid operand types
+        if (!(leftValue instanceof Integer || leftValue instanceof Double || leftValue instanceof Boolean) ||
+                !(rightValue instanceof Integer || rightValue instanceof Double || rightValue instanceof Boolean)) {
+            throw new IllegalArgumentException("Invalid operand types for conditional comparison");
+        }
+
+        // Pass operands to MIPSGenerator for MIPS code generation
+        if (mipsGenerator != null) {
+            // Pass the actual values, not the strings
+            String conditionMIPS = mipsGenerator.generateConditional(operator, leftValue, rightValue);
+            System.out.println("Generated MIPS Code: " + conditionMIPS);
+        } else {
+            System.out.println("MIPSGenerator is not initialized.");
+        }
+
+        // Perform the comparison based on operand types
         if (leftValue instanceof Integer && rightValue instanceof Integer) {
-            // Both operands are Integer
             int left = (Integer) leftValue;
             int right = (Integer) rightValue;
             return evaluateNumericCondition(left, right, operator);
         } else {
-            // At least one operand is a Double; convert both to Double
             double left = convertToDouble(leftValue);
             double right = convertToDouble(rightValue);
             return evaluateNumericCondition(left, right, operator);
@@ -344,36 +304,6 @@ public class Evaluator {
         throw new Exception("Operand " + operand + " not found in SymbolTable or LiteralTable, and is not a valid numeric value.");
     }
 
-
-    private int getValue(String operand) {
-        if(isInteger(operand)){
-            return Integer.parseInt(operand);
-        }else if (symbolTable.containsVariable(operand)) {
-            return (int) symbolTable.getValueById(symbolTable.getIdByName(operand)); // Assuming getValueById returns an int
-        }
-        // If it's a literal (e.g., a number), return it directly
-        else {
-            return Integer.parseInt(operand); // Convert string literals to integers
-        }
-    }
-
-
-    /**********************************************************
-     * METHOD: isVariable(String token)                          *
-     * DESCRIPTION: Checks if the token is a variable by searching*
-     *              the symbol table for its existence.          *
-     * PARAMETERS: String token - The token to check for variable status. *
-     * RETURN VALUE: boolean - Returns true if the token is a variable, false otherwise.  *
-     * EXCEPTIONS: None                                           *
-     **********************************************************/
-
-    // Method to check if the token is a variable (you can modify this to check based on your symbol table)
-    public static boolean isVariable(String token) {
-        boolean exists = symbolTable.containsVariable(token);
-        System.out.println("Checking if variable exists: " +token+ " => " +exists);
-        return exists;  // Assuming symbolTable is a map of variable names to values
-    }
-
     public void evaluateIncrementOrDecrement(String operation, String variableName) throws Exception {
         System.out.println("Evaluating operation: " + operation + " on variable: " + variableName);  // Debug print
         Integer varId = symbolTable.getIdByName(variableName);
@@ -396,13 +326,5 @@ public class Evaluator {
         // Update the symbol table
         symbolTable.updateValue(variableName, currentValue);
     }
-
-    public int getLatestValue(String variableName) throws Exception {
-        if (!symbolTable.containsVariable(variableName)) {
-            throw new IllegalArgumentException("Variable not found: " + variableName);
-        }
-        return (int) symbolTable.getValueById(symbolTable.getIdByName(variableName));
-    }
-
 
 }

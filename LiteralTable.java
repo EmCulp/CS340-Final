@@ -89,6 +89,7 @@ public class LiteralTable{
      **********************************************************/
 
     public void printTable() {
+        System.out.println();
         System.out.println("Literal Table:");
         for (Map.Entry<Integer, Object> entry : literalTable.entrySet()) {
             System.out.println("ID: " + entry.getKey() + ", Value: " + entry.getValue());

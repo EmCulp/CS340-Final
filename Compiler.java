@@ -34,18 +34,16 @@ public class Compiler {
     private static OperatorTable operatorTable;
     private static Evaluator evaluator;
     private static Tokenization tokenizer;
-    private static Compiler compiler;
     private static String inputFile = "C:\\Users\\emily\\OneDrive\\Documents\\Year3\\CS340\\Final - Compiler\\input.txt";
     private static String outputFile = "C:\\Users\\emily\\OneDrive\\Documents\\Year3\\CS340\\Final - Compiler\\output.txt";
-
-    private static MIPSGenerator mipsGenerator = new MIPSGenerator();
-    private static Set<String> checkedVariables = new HashSet<>();
+    private static int controlStructure = 0;
+    private static MIPSGenerator mipsGenerator;
 
     static{
-        compiler = new Compiler();
         symbolTable =  new SymbolTable();
         literalTable = new LiteralTable();
-        evaluator = new Evaluator(symbolTable, literalTable);
+        mipsGenerator = new MIPSGenerator();
+        evaluator = new Evaluator(symbolTable, literalTable, mipsGenerator);
         keywordTable = new KeywordTable();
         operatorTable = new OperatorTable();
         tokenizer = new Tokenization();
@@ -66,7 +64,7 @@ public class Compiler {
      *             command errors.                               *
      **********************************************************/
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
         StringBuilder statement = new StringBuilder();
         try (BufferedReader reader = new BufferedReader(new FileReader(inputFile));
              PrintWriter writer = outputFile != null ? new PrintWriter(new FileWriter(outputFile)) : null) {
@@ -158,6 +156,8 @@ public class Compiler {
         // Display the symbol and literal tables at the end
         symbolTable.display();
         literalTable.printTable();
+        mipsGenerator.generateDataSection();
+        mipsGenerator.printMipsCode();
     }
 
     /**********************************************************
@@ -208,12 +208,12 @@ public class Compiler {
                 if (tokens.length == 3) {
                     handleVariableDeclaration(tokens);  // Variable declaration
                 } else if (tokens.length == 5 && tokens[2].equals("=")) {
-                    compiler.handleAssignment(tokens);  // Variable assignment
+                    handleAssignment(tokens);  // Variable assignment
                 } else {
                     System.out.println("Syntax error: Invalid variable declaration.");
                 }
             } else if (tokens.length >= 3 && tokens[1].equals("=")) {
-                compiler.handleAssignment(tokens);  // Assignment
+                handleAssignment(tokens);  // Assignment
             } else if (keywordTable.contains(tokens[0]) && keywordTable.getTokenID(tokens[0]) == 101) {
                 handleInput(tokens);  // Handle input
             } else if (keywordTable.contains(tokens[0]) && keywordTable.getTokenID(tokens[0]) == 102) {
@@ -250,13 +250,12 @@ public class Compiler {
     private static void handleVariableDeclaration(String[] tokens) {
         String variableName = tokens[1]; // The variable name (e.g., x)
 
-        if(!keywordTable.contains("integer")){
-//          boolean, double, float, String, blah blah blah
+        if (!keywordTable.contains("integer")) {
             System.out.println("Syntax error: Invalid keyword 'integer'.");
             return;
         }
 
-        if(!operatorTable.contains(";")){
+        if (!operatorTable.contains(";")) {
             System.out.println("Syntax error: Invalid operator ';'.");
             return;
         }
@@ -266,37 +265,50 @@ public class Compiler {
             return;
         }
 
-        // If the declaration is just "integer x;"
-        if (tokens.length == 3 && tokens[2].equals(";")) {
-            symbolTable.addEntry(variableName, "int", 0, "global"); // Default value 0 for uninitialized variables
-            System.out.println("Variable declaration: " + variableName + " with ID: " + symbolTable.getIdByName(variableName));
+        // Determine if we are inside a control structure (if-else, while, or for loop)
+        if (isInsideControlStructure()) {
+            String reg = mipsGenerator.allocateTempRegister();
+            // Inside a control structure (local scope) - Add to stack
+            mipsGenerator.pushToStack(reg);  // Add to the stack (allocate space)
+            symbolTable.addEntry(variableName, "int", 0, "local", reg);  // Add to symbol table as local
 
-            int variableID = symbolTable.getIdByName(variableName);
-
-            int literalID = literalTable.addLiteral(0);
-            System.out.println("Added literal: 0 with ID " + literalID + " to the Literal Table.");
-
-            System.out.print("TokenIDs: ");
-            System.out.print(keywordTable.get("integer")+ " " + variableID + " " + operatorTable.get(";")+ " ");
-            System.out.println();
-
-            System.out.println("Code Generators: " + CodeGenerator.END_DEFINE);
+            System.out.println("Local variable declaration inside control structure: " + variableName);
         } else {
-            System.out.println("Syntax error: Invalid variable declaration.");
-        }
-    }
+            // Global variable declaration - Add to .data section
+            mipsGenerator.addToDataSection(variableName, "0", "int");
+            symbolTable.addEntry(variableName, "int", 0, "global", null);
 
+            System.out.println("Global variable declaration: " + variableName);
+        }
+
+        int variableID = symbolTable.getIdByName(variableName);
+        int literalID = literalTable.addLiteral(0);  // Default value of 0
+        System.out.println("Added literal: 0 with ID " + literalID + " to the Literal Table.");
+    }
     private static void handleDouble(String[] tokens) {
         if (tokens.length == 3 && tokens[0].equals("double")) {
             String variableName = tokens[1].replace(";", "");  // Remove semicolon if present
             System.out.println("Checking if variable exists: " + variableName + " => " + symbolTable.containsVariable(variableName));
 
             if (!symbolTable.containsVariable(variableName)) {
-                // Add the double literal to the literal table if not already added
-                addDoubleLiteralIfNotExist(0.0);  // Default to 0.0
-                // Add the double variable with default value to the symbol table
-                symbolTable.addEntry(variableName, "double", 0.0, "global");  // Default value
-//                System.out.println("Not in symbol table... Now added to Symbol Table: " + variableName);
+                if (isInsideControlStructure()) {
+                    // Inside control structure (local scope) - Allocate a temporary register
+                    String register = mipsGenerator.allocateTempRegister();
+                    mipsGenerator.pushToStack(register); // Add to stack for local variable
+
+                    // Add the double variable to the symbol table with the register (local scope)
+                    symbolTable.addEntry(variableName, "double", 0.0, "local", register);  // Default value 0.0 for local
+                    System.out.println("Local double variable declared inside control structure: " + variableName);
+                } else {
+                    // Global variable (add to .data section)
+                    mipsGenerator.addToDataSection(variableName, "0.0", "double");
+
+                    // Add the double literal to the literal table if not already added
+                    addDoubleLiteralIfNotExist(0.0);  // Default to 0.0
+                    // Add the double variable with default value to the symbol table
+                    symbolTable.addEntry(variableName, "double", 0.0, "global", null);  // Default value for global
+                    System.out.println("Global double variable declared: " + variableName);
+                }
             } else {
                 System.out.println("Error: Variable " + variableName + " is already declared.");
             }
@@ -304,9 +316,9 @@ public class Compiler {
             String variableName = tokens[1];
             double value;  // Parse double value from token
 
-            try{
+            try {
                 value = Double.parseDouble(tokens[3].replace(";", ""));
-            }catch(NumberFormatException e){
+            } catch (NumberFormatException e) {
                 System.out.println("Error: Invalid double value provided");
                 return;
             }
@@ -314,11 +326,24 @@ public class Compiler {
             System.out.println("Checking if variable exists: " + variableName + " => " + symbolTable.containsVariable(variableName));
 
             if (!symbolTable.containsVariable(variableName)) {
-                // Add the double literal to the literal table if not already added
-                addDoubleLiteralIfNotExist(value);  // Add the literal value
-                // Add the double variable with the parsed value to the symbol table
-                symbolTable.addEntry(variableName, "double", value, "global");  // Add to symbol table with value
-                System.out.println("Added to Symbol Table with value: " + variableName + " = " + value);
+                if (isInsideControlStructure()) {
+                    // Inside control structure (local scope) - Allocate a temporary register
+                    String register = mipsGenerator.allocateTempRegister();
+                    mipsGenerator.pushToStack(register); // Add to stack for local variable
+
+                    // Add the double variable to the symbol table with the register (local scope)
+                    symbolTable.addEntry(variableName, "double", value, "local", register);  // Add to symbol table with value
+                    System.out.println("Local double variable with value declared inside control structure: " + variableName + " = " + value);
+                } else {
+                    // Global variable (add to .data section)
+                    mipsGenerator.addToDataSection(variableName, String.valueOf(value), "double");
+
+                    // Add the double literal to the literal table if not already added
+                    addDoubleLiteralIfNotExist(value);  // Add the literal value
+                    // Add the double variable with the parsed value to the symbol table (global)
+                    symbolTable.addEntry(variableName, "double", value, "global", null);  // Add to symbol table with value
+                    System.out.println("Global double variable with value declared: " + variableName + " = " + value);
+                }
             } else {
                 System.out.println("Error: Variable " + variableName + " is already declared.");
             }
@@ -326,6 +351,7 @@ public class Compiler {
             System.out.println("Syntax error: Invalid double declaration or assignment.");
         }
     }
+
 
     private static void addDoubleLiteralIfNotExist(double value) {
         // Check if the double literal is already in the table
@@ -342,9 +368,10 @@ public class Compiler {
             System.out.println("Checking if variable exists: " + variableName + " => " + symbolTable.containsVariable(variableName));
 
             if (!symbolTable.containsVariable(variableName)) {
+                mipsGenerator.addToDataSection(tokens[1], "false", "boolean");
                 // Add the boolean variable with default value
                 addBooleanLiteralIfNotExist("false");
-                symbolTable.addEntry(variableName, "boolean", false, "global");  // Default to false
+                symbolTable.addEntry(variableName, "boolean", false, "global", null);  // Default to false
                 System.out.println("Not in symbol table... Now added to Symbol Table: " + variableName);
             } else {
                 System.out.println("Error: Variable " + variableName + " is already declared.");
@@ -355,9 +382,10 @@ public class Compiler {
             System.out.println("Checking if variable exists: " + variableName + " => " + symbolTable.containsVariable(variableName));
 
             if (!symbolTable.containsVariable(variableName)) {
+                mipsGenerator.addToDataSection(tokens[1], String.valueOf(value), "boolean");
                 // Add the boolean literal to literal table if not already added
                 addBooleanLiteralIfNotExist(value ? "true" : "false");
-                symbolTable.addEntry(variableName, "boolean", value, "global");  // Add boolean value to symbol table
+                symbolTable.addEntry(variableName, "boolean", value, "global", null);  // Add boolean value to symbol table
                 System.out.println("Added to Symbol Table with value: " + variableName + " = " + value);
             } else {
                 System.out.println("Error: Variable " + variableName + " is already declared.");
@@ -380,7 +408,8 @@ public class Compiler {
             String variableName = tokens[1].substring(0, tokens[1].length() - 1); // Remove the semicolon
             String type = "string";  // Type of the variable
             String scope = "global";  // Default scope (adjust as necessary)
-            symbolTable.addEntry(variableName, type, "", scope); // Initialize with an empty string
+            mipsGenerator.addToDataSection(tokens[1], " ", "string");
+            symbolTable.addEntry(variableName, type, "", scope, null); // Initialize with an empty string
             System.out.println("Declared string variable: " + variableName);
         }
         // Check if it's an assignment (e.g., string name = "Hello";)
@@ -395,9 +424,12 @@ public class Compiler {
                 literalTable.addLiteral(assignedValue);
 
                 String type = "string";  // Type of the variable
+                mipsGenerator.addToDataSection(tokens[1], value, type);
+
                 String scope = "global";  // Default scope (adjust as necessary)
-                symbolTable.addEntry(variableName, type, assignedValue, scope);
+                symbolTable.addEntry(variableName, type, assignedValue, "global", null);
                 System.out.println("Assigned string: " + assignedValue + " to variable: " + variableName);
+//                System.out.println("Loaded string address into register: " +allocatedRegister);
             } else {
                 System.out.println("Syntax error: Invalid string value for variable " + variableName);
             }
@@ -624,31 +656,38 @@ public class Compiler {
     //works with "integer a = 15;"
     // Assume `evaluator` is capable of handling expressions properly with parentheses
     public static void handleAssignment(String[] tokens) {
-        // Check if the first token indicates a declaration or an assignment
+        // Case 1: Handle "integer x = 5;" or "integer a = 2;"
         if (tokens[0].equals("integer")) {
             String variableName = tokens[1]; // The variable on the left-hand side
-            String valueToken = tokens[3]; // The value to assign
+            String valueToken = tokens[3]; // The value to assign (e.g., "5")
 
-            // Declare the variable with a default value (0)
+            // Check if the variable is already declared
             if (!symbolTable.containsVariable(variableName)) {
-                symbolTable.addEntry(variableName, "int", 0, "global");
+                String allocatedRegister = mipsGenerator.allocateSavedRegister();
+                symbolTable.addEntry(variableName, "int", 0, "global", allocatedRegister);
                 System.out.println("Encountered new symbol " + variableName + " with id " + symbolTable.getIdByName(variableName));
             }
 
-            // Parse and assign the initial value
             try {
                 int value = Integer.parseInt(valueToken); // Convert the token to an integer
-                symbolTable.updateValue(variableName, value); // Update the variable's value
+                symbolTable.updateValue(variableName, value); // Update the variable's value in the symbol table
 
                 // Add to the literal table if necessary
                 int literalID = literalTable.addLiteral(value);
                 System.out.println("Encountered new literal " + value + " with id " + literalID);
 
+                // MIPS Code Generation: Store the value in the register
+                String reg = mipsGenerator.allocateTempRegister();
+                mipsGenerator.loadImmediate(reg, value); // Load the value into a temporary register
+                mipsGenerator.storeToMemory(variableName, reg); // Store the value into the variable
+
+                mipsGenerator.freeRegister(reg); // Free the register after use
+
+                // Print TokenIDs for debugging
                 Integer integerTokenID = keywordTable.get("integer");
                 Integer assignTokenID = operatorTable.get("=");
                 Integer semicolonTokenID = operatorTable.get(";");
 
-                // Print TokenIDs
                 System.out.print("TokenIDs: " + integerTokenID + " " + symbolTable.getIdByName(variableName) + " " + assignTokenID + " " + literalID + " " + semicolonTokenID + " ");
                 System.out.println();
                 System.out.println("Code Generators: " + CodeGenerator.START_DEFINE + " " + CodeGenerator.END_DEFINE);
@@ -656,16 +695,16 @@ public class Compiler {
             } catch (NumberFormatException e) {
                 System.out.println("Syntax error: Invalid assignment value.");
             }
-
         } else {
-            // Handle assignment for already declared variables (e.g., sum = a + b + c)
+            // Case 2: Handle assignments with expressions like "sum = a + b + c"
             String variableName = tokens[0]; // The variable on the left-hand side
             String valueExpression = String.join(" ", Arrays.copyOfRange(tokens, 2, tokens.length - 1)); // Get the right-hand side expression
 
             try {
                 // Ensure the variable is declared
                 if (!symbolTable.containsVariable(variableName)) {
-                    symbolTable.addEntry(variableName, "int", 0, "global"); // Declare it if not
+                    String register = mipsGenerator.allocateSavedRegister();
+                    symbolTable.addEntry(variableName, "int", 0, "global", register); // Declare it if not
                     System.out.println("Encountered new symbol " + variableName + " with id " + symbolTable.getIdByName(variableName));
                 }
 
@@ -707,40 +746,23 @@ public class Compiler {
                 // Add code generators based on the operations performed
                 List<CodeGenerator> codeGenerators = new ArrayList<>();
 
-                // Simulate the math operation to demonstrate code generation
+                // Split the expression into operands and operators for arithmetic
                 String[] expressionTokens = valueExpression.split(" ");
                 for (String token : expressionTokens) {
-                    if (token.equals("+")) {
-                        codeGenerators.add(CodeGenerator.ADD);
-                    } else if (token.equals("-")) {
-                        codeGenerators.add(CodeGenerator.SUB);
-                    } else if (token.equals("*")) {
-                        codeGenerators.add(CodeGenerator.MULT);
-                    } else if (token.equals("/")) {
-                        codeGenerators.add(CodeGenerator.DIV);
-                    } else if (token.equals("(")) {
-                        codeGenerators.add(CodeGenerator.START_PAREN);
-                    } else if (token.equals(")")) {
-                        codeGenerators.add(CodeGenerator.END_PAREN);
-                    } else if (symbolTable.containsVariable(token)) {
-                        codeGenerators.add(CodeGenerator.LOAD); // Load variable
-                    } else {
-                        try {
-                            Integer.parseInt(token); // If it's a literal
-                            codeGenerators.add(CodeGenerator.LOAD); // Load literal
-                        } catch (NumberFormatException e) {
-                            // Handle as needed
-                        }
+                    if (token.equals("+") || token.equals("-") || token.equals("*") || token.equals("/")) {
+                        // Handle arithmetic operator
+                        String operand1 = expressionTokens[0]; // First operand
+                        String operand2 = expressionTokens[2]; // Second operand
+//                        mipsGenerator.generateArithmeticOperation(token, operand1, operand2, variableName);
                     }
                 }
-                codeGenerators.add(CodeGenerator.STORE); // Finally store the computed value
-                System.out.println("Code Generators: " + codeGenerators);
 
             } catch (Exception e) {
                 System.out.println("Error: " + e.getMessage());
             }
         }
     }
+
 
     /**********************************************************
      * METHOD: handleWhileLoop(String[] tokens)
@@ -835,7 +857,6 @@ public class Compiler {
             }
         }
     }
-
     /**********************************************************
      * METHOD: handleIfElse(String[] tokens)
      * DESCRIPTION: Handles if-else commands like "if (condition) { ... } else { ... }".
@@ -1135,8 +1156,23 @@ public class Compiler {
 
         // Add the loop variable to the symbol table
         if(!symbolTable.containsVariable(loopVar)){
-            symbolTable.addEntry(loopVar, "int", initValue, "global");
+            String reg = mipsGenerator.allocateTempRegister();
+            symbolTable.addEntry(loopVar, "int", initValue, "global", reg);
+            mipsGenerator.pushToStack(reg);
+            String offset = symbolTable.getOffsetByName(loopVar);
         }
+
+        String mipsInitialized = "li $t0, " +initValue;
+        mipsGenerator.addMipsInstruction(mipsInitialized);
+        String varOffset = symbolTable.getOffsetByName(loopVar);
+        String mipsStore;
+        if(varOffset == null){
+            mipsStore = "sw $t0, 0($sp)";
+        }else{
+            mipsStore = "sw $t0, " +varOffset+ "($sp)";
+        }
+
+        mipsGenerator.addMipsInstruction(mipsStore);
 
         // Step 5: Parse the condition
         String[] conditionTokens = condition.split(" ");
@@ -1198,7 +1234,8 @@ public class Compiler {
         // Case 1: Variable declaration inside the for loop (e.g., for(integer i = 0; ...))
         if (tokens[2].equals("integer")) {
             startValue = Integer.parseInt(tokens[5]);  // "0" (initial value)
-            symbolTable.addEntry(variableName, "int", startValue, "global");
+            String reg = mipsGenerator.allocateTempRegister();
+            symbolTable.addEntry(variableName, "int", startValue, "global", reg);
             isNewVariable = true;
         }
         // Case 2: Using an existing variable (e.g., integer i; for(i = 0; ...))
@@ -1273,4 +1310,41 @@ public class Compiler {
             }
         }
     }
+
+    private static boolean isInsideControlStructure(){
+        return controlStructure > 0;
+    }
+
+    private static void enterControlStructure(){
+        controlStructure++;
+    }
+
+    private static void exitControlStructure(){
+        if(controlStructure > 0){
+            controlStructure--;
+        }
+    }
+
+    private static String loadVariableIfNeeded(String variableName) {
+        if (!symbolTable.containsVariable(variableName)) {
+            throw new RuntimeException("Variable '" + variableName + "' is not declared.");
+        }
+
+        SymbolTable.Entry entry = symbolTable.getEntry(variableName);
+
+        if (entry.getScope().equals("global")) {
+            // For global variables, load from .data section
+            String reg = mipsGenerator.allocateTempRegister();
+            mipsGenerator.loadFromData(variableName, reg);  // Custom method for global variables
+            return reg;
+        } else if (entry.getScope().equals("local")) {
+            // For local variables, load from the stack using your method
+            String reg = mipsGenerator.allocateTempRegister();
+            mipsGenerator.loadVariable(variableName, reg);  // Using your loadVariable method
+            return reg;
+        } else {
+            throw new RuntimeException("Unknown variable scope for '" + variableName + "'.");
+        }
+    }
+
 }

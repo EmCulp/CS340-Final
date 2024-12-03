@@ -34,19 +34,21 @@ public class SymbolTable {
      * the next ID to 600.                                     *
      **********************************************************/
 
-    private static class Entry{
+    public static class Entry{
         private final int id;
         String name;
         String type;
         Object value;
         String scope;
+        String register;
 
-        public Entry(int id, String name, String type, Object value, String scope){
+        public Entry(int id, String name, String type, Object value, String scope, String register){
             this.id = id;
             this.name = name;
             this.type = type;
             this.value = value;
             this.scope = scope;
+            this.register = register;
         }
 
         public int getId(){
@@ -77,6 +79,14 @@ public class SymbolTable {
             return scope;
         }
 
+        public String getRegister(){
+            return register;
+        }
+
+        public void setRegister(String reg){
+            this.register = reg;
+        }
+
         @Override
         public String toString(){
             return String.format("Name: %s, Type: %s, Value: %s, Scope: %s", name, type, value, scope);
@@ -88,9 +98,16 @@ public class SymbolTable {
         this.nextId = 600; // Start IDs from 600
     }
 
-    public void addEntry(String name, String type, Object value, String scope){
-        table.put(nextId, new Entry(nextId, name, type, value, scope));
+    public void addEntry(String name, String type, Object value, String scope, String register){
+        table.put(nextId, new Entry(nextId, name, type, value, scope, register));
         nextId++;
+    }
+
+    public Entry getEntry(String variableName){
+        if(!table.containsKey(variableName)){
+            throw new IllegalArgumentException("Variable " +variableName+ " not found in the symbol table.");
+        }
+        return table.get(variableName);
     }
 
     /**********************************************************
@@ -191,6 +208,31 @@ public class SymbolTable {
         return null; // Return null if the variable name is not found
     }
 
+    public void assignRegisterToVariable(String variableName, String register){
+        for(Map.Entry<Integer, Entry> entry : table.entrySet()){
+            if(entry.getValue().getName().equals(variableName)){
+                entry.getValue().scope = register;
+                System.out.println("Assigned register " +register+ " to variable " +variableName);
+                return;
+            }
+        }
+
+        System.out.println("Error: Variable " +variableName+ " not found in the Symbol Table.");
+    }
+
+    public String getOffsetByName(String name){
+        Entry entry = table.get(name);
+        return entry != null ? entry.getRegister() : null;
+    }
+
+    public void updateRegister(String variableName, String register){
+        if(containsVariable(variableName)){
+            Entry var = (Entry) getValueById(getIdByName(variableName));
+            var.setRegister(register);
+        }else{
+            System.out.println("Error: Variable not found: " +variableName);
+        }
+    }
 
     /**********************************************************
      * METHOD: display()                                    *
@@ -202,11 +244,11 @@ public class SymbolTable {
     // Method to display all entries in the symbol table
     public void display() {
         System.out.println("Symbol Table:");
-        System.out.println("ID    | Name       | Type       | Value      | Scope");
-        System.out.println("---------------------------------------------------");
+        System.out.println("ID     | Name       | Type       | Value      | Scope   | Register");
+        System.out.println("---------------------------------------------------------------------");
         for (Map.Entry<Integer, Entry> entry : table.entrySet()) {
-            System.out.printf("%-6d | %-10s | %-10s | %-10s | %-6s\n",
-                    entry.getKey(), entry.getValue().name, entry.getValue().type, entry.getValue().value, entry.getValue().scope);
+            System.out.printf("%-6d | %-10s | %-10s | %-10s | %-6s | %-10s\n",
+                    entry.getKey(), entry.getValue().name, entry.getValue().type, entry.getValue().value, entry.getValue().scope, entry.getValue().getRegister());
         }
     }
 }
