@@ -265,7 +265,7 @@ public class Evaluator {
      * EXCEPTIONS: None                                                      *
      **********************************************************/
 
-    public boolean evaluateCondition(String[] conditionTokens) throws Exception {
+    public boolean evaluateCondition(String[] conditionTokens, String labelTrue, String labelFalse) throws Exception {
         if (conditionTokens.length < 3) {
             throw new Exception("Invalid condition. Condition requires a left operand, operator, and right operand.");
         }
@@ -295,10 +295,10 @@ public class Evaluator {
             throw new IllegalArgumentException("Invalid operand types for conditional comparison");
         }
 
-        // Pass operands to MIPSGenerator for MIPS code generation
+        // Generate MIPS code with unique labels for the current condition
         if (mipsGenerator != null) {
-            // Pass the actual values, not the strings
-            String conditionMIPS = mipsGenerator.generateConditional(operator, leftValue, rightValue);
+            // Pass the actual values and labels
+            String conditionMIPS = mipsGenerator.generateConditional(operator, leftValue, rightValue, labelTrue, labelFalse);
             System.out.println("Generated MIPS Code: " + conditionMIPS);
         } else {
             System.out.println("MIPSGenerator is not initialized.");

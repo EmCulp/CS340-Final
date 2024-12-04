@@ -21,16 +21,12 @@ public class MIPSGenerator {
         tempFloatRegisters = new ArrayDeque<>(List.of("$f0", "$f2", "$f4", "$f6", "$f8", "$f10", "$f12", "$f14", "$f16", "$f18"));
         savedFloatRegisters = new ArrayDeque<>(List.of("$f20", "$f22", "$f24", "$f26", "$f28", "$f30"));
         usedRegisters = new HashSet<>();
+        freeRegisters = new ArrayDeque<>(List.of("$t0", "$t1", "$t2", "$t3", "$t4", "$t5", "$t6", "$t7", "$t8", "$t9"));
         mipsCode = new ArrayList<>();  // Initialize the list to store MIPS code
         stackMap = new HashMap<>();
         stackPointer = 0;
     }
 
-    public void RegisterManager(){
-        for(String reg : tempRegisters){
-            freeRegisters.offer(reg);
-        }
-    }
 
     public void addToDataSection(String variableName, String initValue, String dataType) {
         // Prevent duplicates
@@ -94,14 +90,20 @@ public class MIPSGenerator {
 
     // Method to allocate a temporary register
     public String allocateTempRegister() {
-        for (String reg : tempRegisters) {
-            if (!usedRegisters.contains(reg)) {
-                usedRegisters.add(reg);
-                addMipsInstruction("# Allocating temporary register: " + reg);
-                return reg;
-            }
+        if (freeRegisters.isEmpty()) {
+            addMipsInstruction("# No available temporary registers, resetting register pool.");
+            resetRegisterPools();
         }
-        throw new RuntimeException("No available temporary registers");
+
+        if(freeRegisters.isEmpty()){
+            throw  new RuntimeException("No available temporary registers even after reset.");
+        }
+
+        String reg = freeRegisters.poll(); // Get a free register
+        usedRegisters.add(reg);            // Mark the register as used
+        addMipsInstruction("# Allocating temporary register: " + reg);
+//        printRegisterState();
+        return reg;
     }
 
     // Method to allocate a saved register
@@ -113,8 +115,21 @@ public class MIPSGenerator {
                 return reg;
             }
         }
-        throw new RuntimeException("No available saved registers");
+
+        addMipsInstruction("# No available saved registers, resetting register pool.");
+        resetRegisterPools();
+
+        for (String reg : savedRegisters) {
+            if (!usedRegisters.contains(reg)) {
+                usedRegisters.add(reg);
+                addMipsInstruction("# Allocating saved register after reset: " + reg);
+                return reg;
+            }
+        }
+
+        throw new RuntimeException("No available saved registers even after resetting.");
     }
+
 
     // Method to allocate a temporary floating-point register
     public String allocateTempFloatRegister() {
@@ -125,8 +140,21 @@ public class MIPSGenerator {
                 return reg;
             }
         }
-        throw new RuntimeException("No available temporary floating-point registers");
+
+        addMipsInstruction("# No available temporary floating-point registers, resetting register pool.");
+        resetRegisterPools();
+
+        for (String reg : tempFloatRegisters) {
+            if (!usedRegisters.contains(reg)) {
+                usedRegisters.add(reg);
+                addMipsInstruction("# Allocating temporary floating-point register after reset: " + reg);
+                return reg;
+            }
+        }
+
+        throw new RuntimeException("No available temporary floating-point registers even after resetting.");
     }
+
 
     // Method to allocate a saved floating-point register
     public String allocateSavedFloatRegister() {
@@ -137,18 +165,51 @@ public class MIPSGenerator {
                 return reg;
             }
         }
-        throw new RuntimeException("No available saved floating-point registers");
+
+        addMipsInstruction("# No available saved floating-point registers, resetting register pool.");
+        resetRegisterPools();
+
+        for (String reg : savedFloatRegisters) {
+            if (!usedRegisters.contains(reg)) {
+                usedRegisters.add(reg);
+                addMipsInstruction("# Allocating saved floating-point register after reset: " + reg);
+                return reg;
+            }
+        }
+
+        throw new RuntimeException("No available saved floating-point registers even after resetting.");
     }
+
 
     // Method to free a register
     public void freeRegister(String reg) {
         if (usedRegisters.contains(reg)) {
             usedRegisters.remove(reg);
+            if(tempRegisters.contains(reg) && !freeRegisters.contains(reg)){
+                freeRegisters.offerFirst(reg);
+            }
+
             addMipsInstruction("# Register freed: " + reg);
+//            printRegisterState();
         } else {
             addMipsInstruction("# Warning: Attempted to free an unallocated register: " + reg);
         }
     }
+
+    public void resetRegisterPools() {
+        // Reset the register pools to their initial states
+        tempRegisters = new ArrayDeque<>(List.of("$t0", "$t1", "$t2", "$t3", "$t4", "$t5", "$t6", "$t7", "$t8", "$t9"));
+        savedRegisters = new ArrayDeque<>(List.of("$s0", "$s1", "$s2", "$s3", "$s4", "$s5", "$s6", "$s7"));
+        tempFloatRegisters = new ArrayDeque<>(List.of("$f0", "$f2", "$f4", "$f6", "$f8", "$f10", "$f12", "$f14", "$f16", "$f18"));
+        savedFloatRegisters = new ArrayDeque<>(List.of("$f20", "$f22", "$f24", "$f26", "$f28", "$f30"));
+        usedRegisters.clear();  // Clear the set of used registers
+        freeRegisters = new ArrayDeque<>(tempRegisters);  // Reinitialize free registers from tempRegisters
+
+        // Optionally log or output a message for debugging
+        addMipsInstruction("# Reset all register pools");
+//        printRegisterState();
+    }
+
 
     // Method to load a register with an operand
     public void loadRegister(String register, Object operand) {
@@ -296,7 +357,7 @@ public class MIPSGenerator {
     }
 
 
-    public String generateConditional(String operator, Object operand1, Object operand2) {
+    public String generateConditional(String operator, Object operand1, Object operand2, String labelTrue, String labelFalse) {
         String reg1 = allocateTempRegister();  // Load operand1
         String reg2 = allocateTempRegister();  // Load operand2
 
@@ -308,10 +369,12 @@ public class MIPSGenerator {
             // Handle boolean conditionals (true/false)
             switch (operator) {
                 case "==":
-                    addMipsInstruction("beq " + reg1 + ", " + reg2 + ", label_if_true");
+                    addMipsInstruction("beq " + reg1 + ", " + reg2 + ", " +labelTrue);
+                    addMipsInstruction("j " +labelFalse);
                     break;
                 case "!=":
-                    addMipsInstruction("bne " + reg1 + ", " + reg2 + ", label_if_true");
+                    addMipsInstruction("bne " + reg1 + ", " + reg2 + ", " +labelTrue);
+                    addMipsInstruction("j " +labelFalse);
                     break;
                 default:
                     throw new IllegalArgumentException("Unsupported boolean operator: " + operator);
@@ -320,22 +383,28 @@ public class MIPSGenerator {
             // Handle integer or floating-point conditionals
             switch (operator) {
                 case "==":
-                    addMipsInstruction("beq " + reg1 + ", " + reg2 + ", label_if_true");
+                    addMipsInstruction("beq " + reg1 + ", " + reg2 + ", " +labelTrue);
+                    addMipsInstruction("j " +labelFalse);
                     break;
                 case "!=":
-                    addMipsInstruction("bne " + reg1 + ", " + reg2 + ", label_if_true");
+                    addMipsInstruction("bne " + reg1 + ", " + reg2 + ", " +labelTrue);
+                    addMipsInstruction("j " +labelFalse);
                     break;
                 case "<":
-                    addMipsInstruction("blt " + reg1 + ", " + reg2 + ", label_if_true");
+                    addMipsInstruction("blt " + reg1 + ", " + reg2 + ", " +labelTrue);
+                    addMipsInstruction("j " +labelFalse);
                     break;
                 case ">":
-                    addMipsInstruction("bgt " + reg1 + ", " + reg2 + ", label_if_true");
+                    addMipsInstruction("bgt " + reg1 + ", " + reg2 + ", " +labelTrue);
+                    addMipsInstruction("j " +labelFalse);
                     break;
                 case "<=":
-                    addMipsInstruction("ble " + reg1 + ", " + reg2 + ", label_if_true");
+                    addMipsInstruction("ble " + reg1 + ", " + reg2 + ", " +labelTrue);
+                    addMipsInstruction("j " +labelFalse);
                     break;
                 case ">=":
-                    addMipsInstruction("bge " + reg1 + ", " + reg2 + ", label_if_true");
+                    addMipsInstruction("bge " + reg1 + ", " + reg2 + ", " +labelTrue);
+                    addMipsInstruction("j " +labelFalse);
                     break;
                 default:
                     throw new IllegalArgumentException("Unsupported comparison operator: " + operator);
@@ -365,13 +434,25 @@ public class MIPSGenerator {
         return "# MIPS code for: " +String.join(" ", statementTokens);
     }
 
-    public static String generateUniqueLabel(String prefix){
-        labelCounter++;
-        return prefix+"_"+labelCounter;
+    public String generateLabel(String baseName){
+        return baseName + "_" +labelCounter++;
+    }
+
+    public void addLabeledInstruction(String label, String instruction){
+        mipsCode.add(label + ": " + instruction);
+    }
+
+    public void addLabel(String label){
+        mipsCode.add(label+ ":");
     }
 
     public void loadFromData(String variableName, String register){
         addMipsInstruction("lw " +register+ ", " +variableName+ "($gp)");
+    }
+
+    public void printRegisterState(){
+        System.out.println("Free Registers: " +freeRegisters);
+        System.out.println("Used Registers: " +usedRegisters);
     }
 
     public void generateDataSection(){

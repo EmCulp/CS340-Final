@@ -265,18 +265,20 @@ public class Compiler {
             return;
         }
 
+        String scope = isInsideControlStructure() ? "local" : "global";
+
         // Determine if we are inside a control structure (if-else, while, or for loop)
         if (isInsideControlStructure()) {
             String reg = mipsGenerator.allocateTempRegister();
             // Inside a control structure (local scope) - Add to stack
             mipsGenerator.pushToStack(reg);  // Add to the stack (allocate space)
-            symbolTable.addEntry(variableName, "int", 0, "local", reg);  // Add to symbol table as local
+            symbolTable.addEntry(variableName, "int", 0, scope, reg);  // Add to symbol table as local
 
             System.out.println("Local variable declaration inside control structure: " + variableName);
         } else {
             // Global variable declaration - Add to .data section
             mipsGenerator.addToDataSection(variableName, "0", "int");
-            symbolTable.addEntry(variableName, "int", 0, "global", null);
+            symbolTable.addEntry(variableName, "int", 0, scope, null);
 
             System.out.println("Global variable declaration: " + variableName);
         }
@@ -285,6 +287,7 @@ public class Compiler {
         int literalID = literalTable.addLiteral(0);  // Default value of 0
         System.out.println("Added literal: 0 with ID " + literalID + " to the Literal Table.");
     }
+
     private static void handleDouble(String[] tokens) {
         if (tokens.length == 3 && tokens[0].equals("double")) {
             String variableName = tokens[1].replace(";", "");  // Remove semicolon if present
@@ -351,7 +354,6 @@ public class Compiler {
             System.out.println("Syntax error: Invalid double declaration or assignment.");
         }
     }
-
 
     private static void addDoubleLiteralIfNotExist(double value) {
         // Check if the double literal is already in the table
@@ -661,10 +663,15 @@ public class Compiler {
             String variableName = tokens[1]; // The variable on the left-hand side
             String valueToken = tokens[3]; // The value to assign (e.g., "5")
 
+            String scope = isInsideControlStructure() ? "local" : "global";
+
             // Check if the variable is already declared
             if (!symbolTable.containsVariable(variableName)) {
                 String allocatedRegister = mipsGenerator.allocateSavedRegister();
-                symbolTable.addEntry(variableName, "int", 0, "global", allocatedRegister);
+                // Allocate space in the data section (for the first time) and add entry in symbol table
+                symbolTable.addEntry(variableName, "int", 0, scope, allocatedRegister);
+                // Add to the data section for storage
+                mipsGenerator.addToDataSection(variableName, valueToken, "int");
                 System.out.println("Encountered new symbol " + variableName + " with id " + symbolTable.getIdByName(variableName));
             }
 
@@ -687,7 +694,6 @@ public class Compiler {
                 Integer integerTokenID = keywordTable.get("integer");
                 Integer assignTokenID = operatorTable.get("=");
                 Integer semicolonTokenID = operatorTable.get(";");
-
                 System.out.print("TokenIDs: " + integerTokenID + " " + symbolTable.getIdByName(variableName) + " " + assignTokenID + " " + literalID + " " + semicolonTokenID + " ");
                 System.out.println();
                 System.out.println("Code Generators: " + CodeGenerator.START_DEFINE + " " + CodeGenerator.END_DEFINE);
@@ -704,12 +710,14 @@ public class Compiler {
                 // Ensure the variable is declared
                 if (!symbolTable.containsVariable(variableName)) {
                     String register = mipsGenerator.allocateSavedRegister();
-                    symbolTable.addEntry(variableName, "int", 0, "global", register); // Declare it if not
+                    String scope = isInsideControlStructure() ? "local" : "global";
+                    symbolTable.addEntry(variableName, "int", 0, scope, register); // Declare it if not
+                    // Allocate space for the new variable in the data section
+                    mipsGenerator.addToDataSection(variableName, "0", "int"); // Initialize with 0 or whatever initial value is appropriate
                     System.out.println("Encountered new symbol " + variableName + " with id " + symbolTable.getIdByName(variableName));
                 }
 
                 // Evaluate the expression to get the value to assign
-                // Here, we assume you have a method in your Evaluator class that can evaluate the expression and generate code
                 Object result = evaluator.evaluate(valueExpression); // Use the Evaluator to calculate the value
                 String variableType = symbolTable.getTypeByName(variableName);
 
@@ -722,7 +730,7 @@ public class Compiler {
                         result = (int) doubleResult;
                     }
                     if (result instanceof Integer) {
-                        symbolTable.updateValue(variableName, (Integer) result);
+                        symbolTable.updateValue(variableName, (Integer) result); // Update the value in symbol table
                         System.out.println("Assigned integer value: " + result + " to variable: " + variableName);
 
                         // Add to literal table after computation
@@ -789,9 +797,14 @@ public class Compiler {
         System.out.println("Getting token IDs for condition tokens...");
         for (String token : conditionTokensArray) {
             int tokenID = getTokenID(token);  // Get the token ID for the token
-            System.out.println("Token: " + token + ", Token ID: " + tokenID);
+//            System.out.println("Token: " + token + ", Token ID: " + tokenID);
             conditionTokenIDs.add(tokenID);   // Add the token ID to the list
         }
+
+        String loopStart = mipsGenerator.generateLabel("while_start");
+        String loopEnd = mipsGenerator.generateLabel("while_end");
+
+        mipsGenerator.addMipsInstruction(loopStart+ ":");
 
         // Loop until the condition evaluates to false
         while (true) {
@@ -799,7 +812,7 @@ public class Compiler {
             System.out.println("\nRe-evaluating condition...");
 
             // Re-tokenize and re-evaluate the condition to use updated values of variables
-            boolean conditionResult = evaluator.evaluateCondition(conditionTokensArray);
+            boolean conditionResult = evaluator.evaluateCondition(conditionTokensArray, "whileTrue", "whileFalse");
 
             // Print condition evaluation result
             System.out.println("Condition evaluated to " + (conditionResult ? "true" : "false"));
@@ -857,6 +870,7 @@ public class Compiler {
             }
         }
     }
+
     /**********************************************************
      * METHOD: handleIfElse(String[] tokens)
      * DESCRIPTION: Handles if-else commands like "if (condition) { ... } else { ... }".
@@ -889,7 +903,7 @@ public class Compiler {
         // Evaluate the condition
         boolean conditionResult;
         try {
-            conditionResult = evaluator.evaluateCondition(conditionTokens);
+            conditionResult = evaluator.evaluateCondition(conditionTokens, "If-true", "If-false");
             System.out.println("Condition evaluated successfully: " + conditionResult);
         } catch (Exception e) {
             System.err.println("Exception during condition evaluation: " + e.getMessage());
@@ -1178,7 +1192,7 @@ public class Compiler {
         String[] conditionTokens = condition.split(" ");
 
         // Step 6: Execute the loop
-        boolean conditionResult = evaluator.evaluateCondition(conditionTokens);
+        boolean conditionResult = evaluator.evaluateCondition(conditionTokens, "for-true", "for-false");
         while (conditionResult) {
             // Debugging: Check the value of 'i' before executing the loop body
             System.out.println("Before loop body: i = " + symbolTable.getValueById(symbolTable.getIdByName(loopVar)));
@@ -1215,7 +1229,7 @@ public class Compiler {
 
 
             // Recheck the condition after incrementing
-            conditionResult = evaluator.evaluateCondition(conditionTokens);
+            conditionResult = evaluator.evaluateCondition(conditionTokens, "for-t", "for-f");
         }
     }
 
@@ -1257,7 +1271,7 @@ public class Compiler {
         String incrementOperator = tokens[12];  // "i++"
 
         // Step 5: Start the loop, evaluate the condition, and execute the body
-        for (int i = startValue; evaluator.evaluateCondition(conditionTokens); i++) {
+        for (int i = startValue; evaluator.evaluateCondition(conditionTokens, "ft", "ff"); i++) {
             // Execute the loop body (you can customize this part to handle loop body statements)
             executeLoopBody(tokens);  // Replace with your method to process the loop body
 
@@ -1322,6 +1336,8 @@ public class Compiler {
     private static void exitControlStructure(){
         if(controlStructure > 0){
             controlStructure--;
+        }else{
+            System.out.println("Error: Trying to exit a control structure when none are active.");
         }
     }
 

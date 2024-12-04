@@ -243,8 +243,9 @@ public class SymbolTable {
 
     // Method to display all entries in the symbol table
     public void display() {
+        System.out.println();
         System.out.println("Symbol Table:");
-        System.out.println("ID     | Name       | Type       | Value      | Scope   | Register");
+        System.out.println("ID     | Name       | Type       | Value      | Scope  | Register");
         System.out.println("---------------------------------------------------------------------");
         for (Map.Entry<Integer, Entry> entry : table.entrySet()) {
             System.out.printf("%-6d | %-10s | %-10s | %-10s | %-6s | %-10s\n",
