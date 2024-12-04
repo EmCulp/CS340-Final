@@ -101,12 +101,17 @@ public class Evaluator {
     private Object applyOperation(char op, Object b, Object a) {
         double x;
         double y;
+        String reg1 = mipsGenerator.allocateTempRegister();
+        String reg2 = mipsGenerator.allocateTempRegister();
+        String regResult = mipsGenerator.allocateTempRegister();
 
         // Convert operand 'a' to double if it's Integer or Double
         if (a instanceof Integer) {
             x = (Integer) a;
+            mipsGenerator.loadRegister(reg1, a);  // Load operand a (integer) into reg1
         } else if (a instanceof Double) {
             x = (Double) a;
+            mipsGenerator.loadRegister(reg1, a);  // Load operand a (double) into reg1
         } else {
             throw new IllegalArgumentException("Unsupported data type for operand a. Only Integer and Double are supported.");
         }
@@ -114,13 +119,63 @@ public class Evaluator {
         // Convert operand 'b' to double if it's Integer or Double
         if (b instanceof Integer) {
             y = (Integer) b;
+            mipsGenerator.loadRegister(reg2, b);  // Load operand b (integer) into reg2
         } else if (b instanceof Double) {
             y = (Double) b;
+            mipsGenerator.loadRegister(reg2, b);  // Load operand b (double) into reg2
         } else {
             throw new IllegalArgumentException("Unsupported data type for operand b. Only Integer and Double are supported.");
         }
 
-        // Perform the operation
+        // Perform the operation and generate MIPS instructions
+        switch (op) {
+            case '+':
+                if (a instanceof Integer && b instanceof Integer) {
+                    if (isImmediate(b)) {
+                        mipsGenerator.addMipsInstruction("addi " + regResult + ", " + reg1 + ", " + y); // Integer immediate add
+                    } else {
+                        mipsGenerator.addMipsInstruction("add " + regResult + ", " + reg1 + ", " + reg2); // Integer add
+                    }
+                } else {
+                    mipsGenerator.addMipsInstruction("add.s " + regResult + ", " + reg1 + ", " + reg2); // Floating point add
+                }
+                break;
+            case '-':
+                if (a instanceof Integer && b instanceof Integer) {
+                    if (isImmediate(b)) {
+                        mipsGenerator.addMipsInstruction("subi " + regResult + ", " + reg1 + ", " + y); // Integer immediate sub
+                    } else {
+                        mipsGenerator.addMipsInstruction("sub " + regResult + ", " + reg1 + ", " + reg2); // Integer sub
+                    }
+                } else {
+                    mipsGenerator.addMipsInstruction("sub.s " + regResult + ", " + reg1 + ", " + reg2); // Floating point sub
+                }
+                break;
+            case '*':
+                if (a instanceof Integer && b instanceof Integer) {
+                    mipsGenerator.addMipsInstruction("mul " + regResult + ", " + reg1 + ", " + reg2); // Integer mul
+                } else {
+                    mipsGenerator.addMipsInstruction("mul.s " + regResult + ", " + reg1 + ", " + reg2); // Floating point mul
+                }
+                break;
+            case '/':
+                if (b instanceof Integer) {
+                    if (isImmediate(b)) {
+                        mipsGenerator.addMipsInstruction("divi " + reg1 + ", " + reg2 + ", " + y);  // Integer immediate division
+                    } else {
+                        mipsGenerator.addMipsInstruction("div " + reg1 + ", " + reg2);  // Integer division
+                        mipsGenerator.addMipsInstruction("mflo " + regResult);          // Move result to regResult
+                    }
+                } else {
+                    mipsGenerator.addMipsInstruction("div.s " + reg1 + ", " + reg2); // Floating point division
+                    mipsGenerator.addMipsInstruction("mov.s " + regResult + ", $f0"); // Move result to regResult
+                }
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported operator: " + op);
+        }
+
+        // Perform the operation (for result in Integer or Double)
         double result;
         switch (op) {
             case '+':
@@ -145,8 +200,34 @@ public class Evaluator {
             return (int) result; // Return as Integer if both operands were Integer
         }
 
+        // Free the registers after use
+        mipsGenerator.freeRegister(reg1);
+        mipsGenerator.freeRegister(reg2);
+        mipsGenerator.freeRegister(regResult);
+
+        // Return the result in the correct type
         return result; // Otherwise, return as Double
     }
+
+    private boolean isImmediate(Object operand) {
+        // Check if the operand is an Integer or a Double
+        if (operand instanceof Integer) {
+            return true; // Integers can be used as immediate values in MIPS instructions
+        } else if (operand instanceof Double) {
+            return true; // Doubles can be used as immediate values in MIPS instructions for floating point operations
+        } else if (operand instanceof String) {
+            // For String, you may want to check if it's a numerical value
+            try {
+                Double.parseDouble((String) operand); // Try to parse the String to see if it's a number
+                return true; // If it's a valid number, it can be treated as an immediate
+            } catch (NumberFormatException e) {
+                return false; // Not a valid number, so it's not an immediate
+            }
+        }
+
+        return false; // Any other type is not considered an immediate
+    }
+
 
     private int precedence(char op) {
         return OPERATOR_PRECEDENCE.getOrDefault(op, 0);
