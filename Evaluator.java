@@ -65,8 +65,12 @@ public class Evaluator {
         for (String token : tokens) {
             if (isInteger(token)) {
                 int value = Integer.parseInt(token);
-                values.push(value);
-                literalTable.addLiteral(value); // Assuming you have an addLiteral() method
+                values.push(value);  // Push as Integer
+                literalTable.addLiteral(value);  // Add as Integer
+            } else if (isDouble(token)) {
+                double value = Double.parseDouble(token);
+                values.push(value);  // Push as Double
+                literalTable.addLiteral(value);  // Add as Double
             } else if (symbolTable.containsVariable(token)) {
                 Integer id = symbolTable.getIdByName(token);
                 if (id != null) {
@@ -100,7 +104,7 @@ public class Evaluator {
 
         // Convert operand 'a' to double if it's Integer or Double
         if (a instanceof Integer) {
-            x = ((Integer) a).doubleValue();
+            x = (Integer) a;
         } else if (a instanceof Double) {
             x = (Double) a;
         } else {
@@ -109,7 +113,7 @@ public class Evaluator {
 
         // Convert operand 'b' to double if it's Integer or Double
         if (b instanceof Integer) {
-            y = ((Integer) b).doubleValue();
+            y = (Integer) b;
         } else if (b instanceof Double) {
             y = (Double) b;
         } else {
@@ -136,15 +140,12 @@ public class Evaluator {
                 throw new IllegalArgumentException("Unsupported operator: " + op);
         }
 
-        mipsGenerator.generateArithmeticOperation(String.valueOf(op), x, y, result);
-
-        // Return result as Integer if both operands were Integer
+        // Store the result as the correct type in the literal table
         if (a instanceof Integer && b instanceof Integer) {
-            return (int) result;
+            return (int) result; // Return as Integer if both operands were Integer
         }
 
-        // Otherwise, return as Double
-        return result;
+        return result; // Otherwise, return as Double
     }
 
     private int precedence(char op) {
