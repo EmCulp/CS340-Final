@@ -21,7 +21,6 @@
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 public class SymbolTable {
     private final Map<Integer, Entry> table; // Map to store variable names and their details
@@ -109,6 +108,41 @@ public class SymbolTable {
         }
         return table.get(variableName);
     }
+
+    public String getRegister(String variableName){
+        // Iterate through the map and find the entry with the matching variable name
+        for(Map.Entry<Integer, Entry> entry : table.entrySet()){
+            if(entry.getValue().getName().equals(variableName)){
+                return entry.getValue().getRegister();  // Return the register of the matching variable
+            }
+        }
+        return null; // Return null if the variable is not found
+    }
+
+    public void addRegisterToVariable(String variableName, String register) {
+        // Iterate through the map to find the entry with the matching variable name
+        for (Map.Entry<Integer, Entry> entry : table.entrySet()) {
+            if (entry.getValue().getName().equals(variableName)) {
+                // Update the register of the variable
+                entry.getValue().setRegister(register);
+                System.out.println("Register " + register + " has been assigned to variable " + variableName);
+                return;
+            }
+        }
+
+        // If the variable is not found, throw an exception
+        throw new IllegalArgumentException("Variable '" + variableName + "' not found in the Symbol Table.");
+    }
+
+    public String getRegisterForVariable(String variableName) {
+        for (Map.Entry<Integer, Entry> entry : table.entrySet()) {
+            if (entry.getValue().getName().equals(variableName)) {
+                return entry.getValue().getRegister();
+            }
+        }
+        return null; // Return null if the variable is not found
+    }
+
 
     /**********************************************************
      * METHOD: getValue(String name)                           *

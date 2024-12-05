@@ -43,7 +43,7 @@ public class Compiler {
     static{
         symbolTable =  new SymbolTable();
         literalTable = new LiteralTable();
-        mipsGenerator = new MIPSGenerator();
+        mipsGenerator = new MIPSGenerator(symbolTable);
         evaluator = new Evaluator(symbolTable, literalTable, mipsGenerator);
         keywordTable = new KeywordTable();
         operatorTable = new OperatorTable();

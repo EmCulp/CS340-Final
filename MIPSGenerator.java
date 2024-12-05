@@ -14,8 +14,11 @@ public class MIPSGenerator {
     private int stackOffset = -4;
     private Map<String, String> dataSection = new HashMap<>();
     private Set<String> usedSavedRegisters;
+    private static SymbolTable symbolTable;
+    private Queue<String> availableRegisters = new LinkedList<>(Arrays.asList("$t0", "$t1", "$t2", "$t3", "$t4"));
 
-    public MIPSGenerator() {
+
+    public MIPSGenerator(SymbolTable symbolTable) {
         // Initialize register pools
         tempRegisters = new ArrayDeque<>(List.of("$t0", "$t1", "$t2", "$t3", "$t4", "$t5", "$t6", "$t7", "$t8", "$t9"));
         savedRegisters = new ArrayDeque<>(List.of("$s0", "$s1", "$s2", "$s3", "$s4", "$s5", "$s6", "$s7"));
@@ -27,6 +30,7 @@ public class MIPSGenerator {
         stackMap = new HashMap<>();
         stackPointer = 0;
         usedSavedRegisters = new HashSet<>();
+        this.symbolTable = symbolTable;
     }
 
 
@@ -250,8 +254,6 @@ public class MIPSGenerator {
         return "0($sp)"; // For example, this could point to the stack location at the top of the stack
     }
 
-
-    // Example usage in assignment generation
     public void generateAssignment(String variable, String expression) {
         String reg = allocateSavedRegister(); // Allocate a saved register for the variable
 
@@ -262,9 +264,13 @@ public class MIPSGenerator {
         addMipsInstruction("# Assigning result of expression to " + variable);
         addMipsInstruction("move " + reg + ", " + resultRegister);
 
+        // Update the register for the variable in the symbol table
+        symbolTable.addRegisterToVariable(variable, reg);
+
         // Free the temporary register if no longer needed
         freeRegister(resultRegister);
     }
+
 
     // Example evaluateExpression method (simplified)
     private String evaluateExpression(String expression) {
@@ -453,46 +459,84 @@ public class MIPSGenerator {
         addMipsInstruction(endLabel + ":");
     }
 
+    public String assignRegister(String variable) {
+        if (availableRegisters.isEmpty()) {
+            throw new RuntimeException("No available registers for variable: " + variable);
+        }
+
+        // Assign the next available register
+        String register = availableRegisters.poll();
+
+        // Add the register to the variable in the symbol table
+        symbolTable.addRegisterToVariable(variable, register);
+
+        // Initialize the variable in the register (e.g., load its initial value)
+        addMipsInstruction("li " + register + ", 0"); // Default initialization
+        return register;
+    }
+
+
     // Method to generate the MIPS code for printing an integer (value in $a0)
     public void generatePrint(String variable) {
         // Assuming the variable is located at the top of the stack
         // Load the value of 'variable' into $a0
-        addMipsInstruction("lw $a0, 0($sp)");   // Load the value of the variable into $a0
+        String reg = symbolTable.getRegister(variable);
+        addMipsInstruction("move $a0, " +reg);
         addMipsInstruction("li $v0, 1");         // Syscall code for print integer
         addMipsInstruction("syscall");           // Perform the syscall to print the integer
     }
 
     // Method to generate the MIPS code for incrementing a variable (value in $t0)
     public void generateIncrement(String variable) {
-        // Load the value of 'variable' (i) into $t0
-        addMipsInstruction("lw $t0, 0($sp)");    // Load the value of 'i' into $t0
-        addMipsInstruction("addi $t0, $t0, 1");   // Increment 'i' by 1
-        addMipsInstruction("sw $t0, 0($sp)");     // Store the updated value of 'i' back into memory
+        // Check if the variable is already assigned a register
+        String register = symbolTable.getRegister(variable);
+
+        if (register == null) {
+            // If the variable doesn't have a register, assign one
+            register = allocateTempRegister();
+        }
+
+        // Generate MIPS instructions to increment the value in the register
+        addMipsInstruction("# Increment variable " + variable);
+        addMipsInstruction("addi " + register + ", " + register + ", 1");
     }
+
 
     // Method to handle the entire for loop with the print and increment functionality
     public void generateForLoop(String initialization, String condition, String increment, List<String> bodyTokens) {
-        // You can add initialization logic here
-        addMipsInstruction(initialization);  // Initialize the loop variable
+        // Initialize the loop variable
+        String loopVar = initialization.split("=")[0].trim(); // Extract variable (e.g., "i")
+        String initialValue = initialization.split("=")[1].trim(); // Extract initial value (e.g., "0")
+        String register = assignRegister(loopVar);
 
-        // Loop start label
+        // Load the initial value into the assigned register
+        addMipsInstruction("li " + register + ", " + initialValue);
+
+        // Start of the loop
         addMipsInstruction("label_8:");
-        addMipsInstruction(condition);  // Check the loop condition
 
-        // Loop body (e.g., print 'i')
+        // Condition check
+        addMipsInstruction("# Check condition for " + loopVar);
+        addMipsInstruction(condition);
+
+        // Loop body
         for (String bodyToken : bodyTokens) {
-            if (bodyToken.equals("print(i)")) {
-                generatePrint("i");  // Call the print method
+            if (bodyToken.equals("print")) {
+                generatePrint(loopVar); // Use loop variable name
             }
         }
 
-        // Increment the loop variable (i++)
-        generateIncrement("i");  // Call the increment method
+        // Increment the loop variable
+        generateIncrement(loopVar);
 
-        // Jump back to the start of the loop or exit
+        // Jump back to the start of the loop
         addMipsInstruction("j label_8");
-        addMipsInstruction("label_9:");  // End of the loop
+
+        // End of the loop
+        addMipsInstruction("label_9:");
     }
+
+    
 
     private String generateLabel() {
         return "label_" + labelCounter++;  // Increment and return a unique label
