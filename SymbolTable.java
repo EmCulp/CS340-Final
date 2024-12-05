@@ -199,6 +199,15 @@ public class SymbolTable {
         return null;
     }
 
+    public Entry getValue(String variableName) throws Exception {
+        if (table.containsKey(variableName)) {
+            return table.get(variableName); // Return the value of the variable
+        } else {
+            throw new Exception("Variable not found: " + variableName);
+        }
+    }
+
+
     public Object get(String name) {
         for (Map.Entry<Integer, Entry> entry : table.entrySet()) {
             if (entry.getValue().name.equals(name)) {

@@ -38,6 +38,7 @@ public class Compiler {
     private static String outputFile = "C:\\Users\\emily\\OneDrive\\Documents\\Year3\\CS340\\Final - Compiler\\output.txt";
     private static int controlStructure = 0;
     private static MIPSGenerator mipsGenerator;
+    private static boolean generateMips = true;
 
     static{
         symbolTable =  new SymbolTable();
@@ -271,7 +272,7 @@ public class Compiler {
         if (isInsideControlStructure()) {
             String reg = mipsGenerator.allocateTempRegister();
             // Inside a control structure (local scope) - Add to stack
-            mipsGenerator.pushToStack(reg);  // Add to the stack (allocate space)
+//            mipsGenerator.pushToStack(reg);  // Add to the stack (allocate space)
             symbolTable.addEntry(variableName, "int", 0, scope, reg);  // Add to symbol table as local
 
             System.out.println("Local variable declaration inside control structure: " + variableName);
@@ -297,7 +298,7 @@ public class Compiler {
                 if (isInsideControlStructure()) {
                     // Inside control structure (local scope) - Allocate a temporary register
                     String register = mipsGenerator.allocateTempRegister();
-                    mipsGenerator.pushToStack(register); // Add to stack for local variable
+//                    mipsGenerator.pushToStack(register); // Add to stack for local variable
 
                     // Add the double variable to the symbol table with the register (local scope)
                     symbolTable.addEntry(variableName, "double", 0.0, "local", register);  // Default value 0.0 for local
@@ -332,7 +333,7 @@ public class Compiler {
                 if (isInsideControlStructure()) {
                     // Inside control structure (local scope) - Allocate a temporary register
                     String register = mipsGenerator.allocateTempRegister();
-                    mipsGenerator.pushToStack(register); // Add to stack for local variable
+//                    mipsGenerator.pushToStack(register); // Add to stack for local variable
 
                     // Add the double variable to the symbol table with the register (local scope)
                     symbolTable.addEntry(variableName, "double", value, "local", register);  // Add to symbol table with value
@@ -785,34 +786,28 @@ public class Compiler {
      **********************************************************/
 
     public static void handleWhileLoop(String condition, List<String> blockTokens) throws Exception {
-
-        // Tokenize the condition using your Tokenization class, which returns a String[]
+        // Tokenize the condition using the Tokenization class
         System.out.println("Tokenizing condition: " + condition);
-        String[] conditionTokensArray = tokenizer.tokenize(condition); // Assuming tokenize returns a String[]
+        String[] conditionTokensArray = tokenizer.tokenize(condition); // Tokenize the condition
 
-        // Create a list of token IDs for the condition
-        List<Integer> conditionTokenIDs = new ArrayList<>();
-
-        // Get the token ID for each token in the condition
-        System.out.println("Getting token IDs for condition tokens...");
-        for (String token : conditionTokensArray) {
-            int tokenID = getTokenID(token);  // Get the token ID for the token
-//            System.out.println("Token: " + token + ", Token ID: " + tokenID);
-            conditionTokenIDs.add(tokenID);   // Add the token ID to the list
-        }
-
+        // Generate labels for the loop, but only once
         String loopStart = mipsGenerator.generateLabel("while_start");
         String loopEnd = mipsGenerator.generateLabel("while_end");
 
-        mipsGenerator.addMipsInstruction(loopStart+ ":");
+        // Print the generated loop start label once
+        mipsGenerator.addMipsInstruction(loopStart + ":");
 
-        // Loop until the condition evaluates to false
+        // Generate the MIPS code for the condition (evaluate only once at the start)
+        if (generateMips && mipsGenerator != null) {
+            System.out.println("Generating MIPS for condition (once)...");
+            evaluator.evaluateCondition(conditionTokensArray, loopStart, loopEnd); // First-time condition evaluation
+        }
+
+        // Now execute the loop
         while (true) {
-            // Re-evaluate the condition before each loop iteration
+            // Re-evaluate the condition for each iteration
             System.out.println("\nRe-evaluating condition...");
-
-            // Re-tokenize and re-evaluate the condition to use updated values of variables
-            boolean conditionResult = evaluator.evaluateCondition(conditionTokensArray, "whileTrue", "whileFalse");
+            boolean conditionResult = evaluator.evaluateCondition(conditionTokensArray, loopStart, loopEnd);
 
             // Print condition evaluation result
             System.out.println("Condition evaluated to " + (conditionResult ? "true" : "false"));
@@ -822,13 +817,12 @@ public class Compiler {
                 break; // Exit the loop if condition evaluates to false
             }
 
-            System.out.println("Condition evaluated to true, executing block...");
-
-            // Process the block of code (now as complete statements)
+            // Execute the loop body (statements inside the loop)
+            System.out.println("Generating MIPS for loop body...");
             StringBuilder statementBuilder = new StringBuilder();  // StringBuilder to concatenate tokens
 
             for (String token : blockTokens) {
-                token = token.trim();  // Trim excess whitespace
+                token = token.trim(); // Trim whitespace
 
                 if (!token.isEmpty()) {
                     statementBuilder.append(token).append(" ");  // Concatenate tokens with space
@@ -851,24 +845,17 @@ public class Compiler {
 
                         // Reset the StringBuilder for the next statement
                         statementBuilder.setLength(0);
-
                     }
                 }
             }
 
-            // Re-tokenize the condition after executing the block to use the updated symbol table values
-            System.out.println("\nRe-tokenizing condition after block execution...");
-            conditionTokensArray = tokenizer.tokenize(condition); // Re-tokenize the condition with updated variable values
-
-            System.out.println("Updated condition tokens: " + Arrays.toString(conditionTokensArray));
-
-            conditionTokenIDs.clear();
-            for (String token : conditionTokensArray) {
-                int tokenID = getTokenID(token);
-                System.out.println("Updated Token: " + token + ", Token ID: " + tokenID);
-                conditionTokenIDs.add(tokenID); // Update the token IDs
-            }
         }
+
+        // Jump back to the start of the loop to re-evaluate the condition
+        mipsGenerator.addMipsInstruction("j " + loopStart); // No need to generate it every iteration
+
+        // Generate the loop end label (after the loop exits)
+        mipsGenerator.addMipsInstruction(loopEnd + ":");
     }
 
     /**********************************************************
@@ -900,6 +887,12 @@ public class Compiler {
 
         // Extract tokens for the condition
         String[] conditionTokens = Arrays.copyOfRange(tokens, startCondition + 1, endCondition);
+
+        // Generate labels for the MIPS code
+        String ifLabel = mipsGenerator.generateLabel("IF_BLOCK");
+        String elseLabel = mipsGenerator.generateLabel("ELSE_BLOCK");
+        String endLabel = mipsGenerator.generateLabel("END_IF_ELSE");
+
         // Evaluate the condition
         boolean conditionResult;
         try {
@@ -911,18 +904,12 @@ public class Compiler {
             return; // or handle the exception as appropriate
         }
 
-        // Locate the 'if' block
-        int openIfBrace = findNextToken(tokens, "{", endCondition);
-        int closeIfBrace = findMatchingBrace(tokens, openIfBrace);
-        if (openIfBrace < 0 || closeIfBrace < 0) {
-            throw new Exception("Invalid if block structure: Missing braces");
-        }
-        String[] ifTokens = Arrays.copyOfRange(tokens, openIfBrace + 1, closeIfBrace);
+        // Extract tokens for 'if' block
+        String[] ifTokens = extractBlock(tokens, "if");
 
-        // Check for the 'else' block
-        int elseIndex = findNextToken(tokens, "else", closeIfBrace + 1);
-        String[] elseTokens = new String[0]; // Default to an empty else block
-
+        // Extract tokens for 'else' block if it exists
+        String[] elseTokens = new String[0];
+        int elseIndex = findNextToken(tokens, "else", findMatchingBrace(tokens, findIndex(tokens, ")")) + 1);
         if (elseIndex >= 0) {
             int openElseBrace = findNextToken(tokens, "{", elseIndex);
             int closeElseBrace = findMatchingBrace(tokens, openElseBrace);
@@ -933,20 +920,32 @@ public class Compiler {
             System.out.println("Extracted elseTokens: " + Arrays.toString(elseTokens));
         }
 
-        // Debugging information
-        System.out.println("If tokens: " + Arrays.toString(ifTokens));
-        System.out.println("Else tokens: " + Arrays.toString(elseTokens));
+        // Print MIPS code for the 'if' block
+        mipsGenerator.addLabel(ifLabel);
+        mipsGenerator.addComment("If block start");
+        processBlock(ifTokens, 0, ifTokens.length - 1);
 
-        // Execute the appropriate block
-        if (conditionResult) {
-            System.out.println("Executing if block...");
-            processBlock(ifTokens, 0, ifTokens.length - 1); // Directly process the 'if' block
-        } else if (elseTokens.length > 0) {
-            System.out.println("Executing else block...");
-            processBlock(elseTokens, 0, elseTokens.length - 1); // Directly process the 'else' block
-        } else {
-            System.out.println("No else block to execute.");
+        // Print MIPS code for the 'else' block
+        if (elseTokens.length > 0) {
+            mipsGenerator.addLabel(elseLabel);
+            mipsGenerator.addComment("Else block start");
+            processBlock(elseTokens, 0, elseTokens.length - 1);
         }
+
+        // Add the end label
+        mipsGenerator.addLabel(endLabel);
+        System.out.println("If-Else MIPS Code Generation Complete");
+    }
+
+    private static String[] extractBlock(String[] tokens, String blockType) throws Exception {
+        int startBrace = findNextToken(tokens, "{", 0);
+        int endBrace = findMatchingBrace(tokens, startBrace);
+
+        if (startBrace < 0 || endBrace < 0) {
+            throw new Exception("Invalid " + blockType + " block structure: Missing braces");
+        }
+
+        return Arrays.copyOfRange(tokens, startBrace + 1, endBrace);
     }
 
     private static int findMatchingBrace(String[] tokens, int start) {
@@ -1006,82 +1005,6 @@ public class Compiler {
                 executeCommand(commandTokens); // Execute the command
                 currentTokenStart = i + 1; // Move to the next command
             }
-        }
-    }
-
-    /**********************************************************
-     * METHOD: getTokenID(String token)
-     * DESCRIPTION: This method checks the type of a given token and returns the corresponding
-     *              token ID. The token can be a predefined keyword/operator, a variable, or
-     *              a numeric literal. It checks each type in sequence and retrieves the
-     *              appropriate token ID. It also handles printing the token and its ID
-     *              for debugging purposes.
-     * PARAMETERS: String token - The token whose ID is being retrieved.
-     * RETURN VALUE: int - The token ID associated with the token, or -1 if the token is not found.
-     * EXCEPTIONS: None
-     **********************************************************/
-
-    private static int getTokenID(String token) {
-        // Check if the token is a predefined keyword or operator (like "if", "else", "==", etc.)
-        if (keywordTable.contains(token)) {
-            // Print the token ID for keywords/operators
-            int tokenID = keywordTable.getTokenID(token);
-            System.out.println("Token: " + token + ", Token ID: " + tokenID);
-            return tokenID;
-        }else if(operatorTable.contains(token)){
-            int tokenID = operatorTable.getTokenID(token);
-            System.out.println("Token: " +token+ ", Token ID (Operator): " + tokenID);
-            return tokenID;
-        }
-        // Check if the token is a variable (like 'a', 'b', etc.)
-        else if (symbolTable.containsVariable(token)) {
-            // Retrieve the token ID for the variable from the symbol table
-            int tokenID = symbolTable.getIdByName(token);
-            // Print the token ID for the variable
-            System.out.println("Token: " + token + ", Token ID (Variable): " + tokenID);
-
-            // Retrieve the value of the variable for condition evaluation (use value in comparison)
-//            Object variableValue = symbolTable.getValueById(tokenID);
-
-            // Return the token ID to be used for condition evaluation (if needed)
-            return tokenID;
-        }
-        // Check if the token is a numeric literal
-        else if (isNumericLiteral(token)) {
-            int literalValue = Integer.parseInt(token); // Convert numeric literals to int
-            int literalID = literalTable.getLiteralID(literalValue); // Check if the literal already has an ID
-
-            if (literalID == -1) {
-                literalID = literalTable.addLiteral(literalValue); // Add literal if not already present
-            }
-
-            // Print the token ID for the literal
-            System.out.println("Token: " + token + ", Token ID (Literal): " + literalID);
-            return literalID;
-        }
-
-        // Return -1 if token is not found
-        System.out.println("Unrecognized token: " +token);
-        return -1;
-    }
-
-    /**********************************************************
-     * METHOD: isNumericLiteral(String token)
-     * DESCRIPTION: This helper method checks if a given token is a numeric literal. It tries
-     *              to parse the token into an integer. If successful, it returns true; otherwise,
-     *              it returns false.
-     * PARAMETERS: String token - The token to check.
-     * RETURN VALUE: boolean - True if the token is a numeric literal, false otherwise.
-     * EXCEPTIONS: None
-     **********************************************************/
-
-    // Helper method to check if a token is a numeric literal
-    private static boolean isNumericLiteral(String token) {
-        try {
-            Integer.parseInt(token);
-            return true;
-        } catch (NumberFormatException e) {
-            return false;
         }
     }
 
@@ -1172,18 +1095,17 @@ public class Compiler {
         if(!symbolTable.containsVariable(loopVar)){
             String reg = mipsGenerator.allocateTempRegister();
             symbolTable.addEntry(loopVar, "int", initValue, "global", reg);
-            mipsGenerator.pushToStack(reg);
-            String offset = symbolTable.getOffsetByName(loopVar);
+//            String offset = symbolTable.getOffsetByName(loopVar);
         }
 
-        String mipsInitialized = "li $t0, " +initValue;
+        String mipsInitialized = "li $t0, " + initValue;
         mipsGenerator.addMipsInstruction(mipsInitialized);
         String varOffset = symbolTable.getOffsetByName(loopVar);
         String mipsStore;
         if(varOffset == null){
             mipsStore = "sw $t0, 0($sp)";
-        }else{
-            mipsStore = "sw $t0, " +varOffset+ "($sp)";
+        } else {
+            mipsStore = "sw $t0, " + varOffset + "($sp)";
         }
 
         mipsGenerator.addMipsInstruction(mipsStore);
@@ -1191,42 +1113,32 @@ public class Compiler {
         // Step 5: Parse the condition
         String[] conditionTokens = condition.split(" ");
 
-        // Step 6: Execute the loop
+        List<String> tokensList = Arrays.asList(loopTokens);
+        int start = tokensList.indexOf("{");
+        int end = tokensList.lastIndexOf("}");
+        String[] bodyTokens = tokensList.subList(start + 1, end).toArray(new String[0]);
+
+        mipsGenerator.generateForLoop(initialization, condition, increment, Arrays.asList(bodyTokens));
+
+        // Start the loop, continue to use the same registers
         boolean conditionResult = evaluator.evaluateCondition(conditionTokens, "for-true", "for-false");
         while (conditionResult) {
             // Debugging: Check the value of 'i' before executing the loop body
             System.out.println("Before loop body: i = " + symbolTable.getValueById(symbolTable.getIdByName(loopVar)));
 
             // Execute the loop body
-            List<String> tokensList = Arrays.asList(loopTokens);
-            int start = tokensList.indexOf("{");
-            int end = tokensList.lastIndexOf("}");
-            String[] bodyTokens = tokensList.subList(start + 1, end).toArray(new String[0]);
             executeLoopBody(bodyTokens);
 
-            // Call evaluateIncrementOrDecrement method to handle "i++" or similar increments
-            if (increment.contains("++")) {  // Check if it's an increment operation
-                String variableName;
-                if (increment.startsWith("++")) {
-                    variableName = increment.substring(2).trim();  // Extract variable name for "++i"
-                    evaluator.evaluateIncrementOrDecrement("++", variableName);
-                } else if (increment.endsWith("++")) {
-                    variableName = increment.substring(0, increment.length() - 2).trim();  // Extract variable name for "i++"
-                    evaluator.evaluateIncrementOrDecrement("++", variableName);
-                }
-            } else if (increment.contains("--")) {  // Check if it's a decrement operation
-                String variableName;
-                if (increment.startsWith("--")) {
-                    variableName = increment.substring(2).trim();  // Extract variable name for "--i"
-                    evaluator.evaluateIncrementOrDecrement("--", variableName);
-                } else if (increment.endsWith("--")) {
-                    variableName = increment.substring(0, increment.length() - 2).trim();  // Extract variable name for "i--"
-                    evaluator.evaluateIncrementOrDecrement("--", variableName);
-                }
+            // Handle the increment or decrement operation (e.g., i++, i--)
+
+            // Reuse the same registers for incrementing
+            if (increment.contains("++")) {
+                evaluator.evaluateIncrementOrDecrement("++", loopVar);
+            } else if (increment.contains("--")) {
+                evaluator.evaluateIncrementOrDecrement("--", loopVar);
             } else {
                 throw new IllegalArgumentException("Invalid increment/decrement operation: " + increment);
             }
-
 
             // Recheck the condition after incrementing
             conditionResult = evaluator.evaluateCondition(conditionTokens, "for-t", "for-f");

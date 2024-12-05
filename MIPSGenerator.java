@@ -9,10 +9,11 @@ public class MIPSGenerator {
     private Deque<String> freeRegisters;
     private static List<String> mipsCode;  // List to store MIPS instructions
     private static int labelCounter = 0;
-    private int stackPointer = 0;
+    private int stackPointer = 0x7fffe000;
     private Map<String, Integer> stackMap;
     private int stackOffset = -4;
     private Map<String, String> dataSection = new HashMap<>();
+    private Set<String> usedSavedRegisters;
 
     public MIPSGenerator() {
         // Initialize register pools
@@ -25,6 +26,7 @@ public class MIPSGenerator {
         mipsCode = new ArrayList<>();  // Initialize the list to store MIPS code
         stackMap = new HashMap<>();
         stackPointer = 0;
+        usedSavedRegisters = new HashSet<>();
     }
 
 
@@ -54,23 +56,42 @@ public class MIPSGenerator {
         }
     }
 
+    //want to push one thing to the stack
     public void pushToStack(String register){
-        stackOffset -= 4;
-        addMipsInstruction("addi $sp, $sp, -" +stackOffset);
-        addMipsInstruction("sw " +register+ ", -" +stackOffset+"($sp)");
+        addMipsInstruction("addi $sp, $sp, -4");
+        addMipsInstruction("sw " +register+ ", 0($sp)");
     }
 
     public void popFromStack(String register){
         addMipsInstruction("lw " +register+ ", " +stackOffset+ "($sp)");
-        addMipsInstruction("addi $sp, $sp, " +stackOffset);
-        stackPointer += 4;
+        addMipsInstruction("addi $sp, $sp, 4");
+        stackOffset += 4;
     }
 
-    public void allocateVariable(String variableName){
-        stackPointer -= 4;
-        stackMap.put(variableName, stackPointer);
-        addMipsInstruction("# Allocating variable " +variableName+ " at offset " +stackPointer);
+    // Allocate a variable on the stack
+    public void allocateVariable(String variableName) {
+        stackPointer -= 4;  // Move stack pointer for variable allocation
+        stackMap.put(variableName, stackPointer); // Store the offset for the variable
+        addMipsInstruction("# Allocating variable: " + variableName + " at offset " + stackPointer);
     }
+
+
+    // Method to deallocate a variable and free the associated memory
+    public void deallocateVariable(String variableName) {
+        if (stackMap.containsKey(variableName)) {
+            // Get the stack offset for the variable
+            int offset = stackMap.get(variableName);
+
+            // Generate MIPS instruction to free the variable's memory
+            addMipsInstruction("# Deallocating variable: " + variableName + " at offset " + offset);
+
+            // Remove the variable from the stack map
+            stackMap.remove(variableName);
+        } else {
+            System.out.println("Variable " + variableName + " not found in the stack.");
+        }
+    }
+
 
     public void storeVariable(String variableName, String register){
         if(!stackMap.containsKey(variableName)){
@@ -86,6 +107,24 @@ public class MIPSGenerator {
         }
         int offset = stackMap.get(variableName);
         addMipsInstruction("lw " +register+ ", " +offset+"($sp)");
+    }
+
+    // Method to push only used saved registers onto the stack
+    public void saveUsedSavedRegisters() {
+        for (String reg : usedSavedRegisters) {
+            addMipsInstruction("addi $sp, $sp, -4");  // Adjust the stack pointer
+            addMipsInstruction("sw " + reg + ", 0($sp)");  // Store the register value to the stack
+            addMipsInstruction("# Saved register " + reg + " to stack");
+        }
+    }
+
+    // Method to pop only used saved registers from the stack
+    public void restoreUsedSavedRegisters() {
+        for (String reg : usedSavedRegisters) {
+            addMipsInstruction("lw " + reg + ", 0($sp)");  // Load the register value from the stack
+            addMipsInstruction("addi $sp, $sp, 4");  // Restore the stack pointer
+            addMipsInstruction("# Restored register " + reg + " from stack");
+        }
     }
 
     // Method to allocate a temporary register
@@ -111,6 +150,7 @@ public class MIPSGenerator {
         for (String reg : savedRegisters) {
             if (!usedRegisters.contains(reg)) {
                 usedRegisters.add(reg);
+                usedSavedRegisters.add(reg);
                 addMipsInstruction("# Allocating saved register: " + reg);
                 return reg;
             }
@@ -122,6 +162,7 @@ public class MIPSGenerator {
         for (String reg : savedRegisters) {
             if (!usedRegisters.contains(reg)) {
                 usedRegisters.add(reg);
+                usedSavedRegisters.add(reg);
                 addMipsInstruction("# Allocating saved register after reset: " + reg);
                 return reg;
             }
@@ -130,63 +171,16 @@ public class MIPSGenerator {
         throw new RuntimeException("No available saved registers even after resetting.");
     }
 
-
-    // Method to allocate a temporary floating-point register
-    public String allocateTempFloatRegister() {
-        for (String reg : tempFloatRegisters) {
-            if (!usedRegisters.contains(reg)) {
-                usedRegisters.add(reg);
-                addMipsInstruction("# Allocating temporary floating-point register: " + reg);
-                return reg;
-            }
-        }
-
-        addMipsInstruction("# No available temporary floating-point registers, resetting register pool.");
-        resetRegisterPools();
-
-        for (String reg : tempFloatRegisters) {
-            if (!usedRegisters.contains(reg)) {
-                usedRegisters.add(reg);
-                addMipsInstruction("# Allocating temporary floating-point register after reset: " + reg);
-                return reg;
-            }
-        }
-
-        throw new RuntimeException("No available temporary floating-point registers even after resetting.");
-    }
-
-
-    // Method to allocate a saved floating-point register
-    public String allocateSavedFloatRegister() {
-        for (String reg : savedFloatRegisters) {
-            if (!usedRegisters.contains(reg)) {
-                usedRegisters.add(reg);
-                addMipsInstruction("# Allocating saved floating-point register: " + reg);
-                return reg;
-            }
-        }
-
-        addMipsInstruction("# No available saved floating-point registers, resetting register pool.");
-        resetRegisterPools();
-
-        for (String reg : savedFloatRegisters) {
-            if (!usedRegisters.contains(reg)) {
-                usedRegisters.add(reg);
-                addMipsInstruction("# Allocating saved floating-point register after reset: " + reg);
-                return reg;
-            }
-        }
-
-        throw new RuntimeException("No available saved floating-point registers even after resetting.");
-    }
-
-
     // Method to free a register
     public void freeRegister(String reg) {
         if (usedRegisters.contains(reg)) {
             usedRegisters.remove(reg);
             if(tempRegisters.contains(reg) && !freeRegisters.contains(reg)){
                 freeRegisters.offerFirst(reg);
+            }
+
+            if(savedRegisters.contains(reg)){
+                usedSavedRegisters.remove(reg);
             }
 
             addMipsInstruction("# Register freed: " + reg);
@@ -199,11 +193,9 @@ public class MIPSGenerator {
     public void resetRegisterPools() {
         // Reset the register pools to their initial states
         tempRegisters = new ArrayDeque<>(List.of("$t0", "$t1", "$t2", "$t3", "$t4", "$t5", "$t6", "$t7", "$t8", "$t9"));
-        savedRegisters = new ArrayDeque<>(List.of("$s0", "$s1", "$s2", "$s3", "$s4", "$s5", "$s6", "$s7"));
-        tempFloatRegisters = new ArrayDeque<>(List.of("$f0", "$f2", "$f4", "$f6", "$f8", "$f10", "$f12", "$f14", "$f16", "$f18"));
-        savedFloatRegisters = new ArrayDeque<>(List.of("$f20", "$f22", "$f24", "$f26", "$f28", "$f30"));
         usedRegisters.clear();  // Clear the set of used registers
         freeRegisters = new ArrayDeque<>(tempRegisters);  // Reinitialize free registers from tempRegisters
+        usedSavedRegisters.clear();
 
         // Optionally log or output a message for debugging
         addMipsInstruction("# Reset all register pools");
@@ -242,21 +234,6 @@ public class MIPSGenerator {
 
     private String generateUniqueLabelForDouble(double value){
         return "double_" + value;
-    }
-
-    // Helper method to check if operand is an integer
-    public boolean isInteger(String operand) {
-        return operand != null && operand.matches("-?\\d+");
-    }
-
-    // Helper method to check if operand is a double (or float in MIPS terms)
-    public boolean isDouble(String operand) {
-        return operand != null && operand.matches("-?\\d*\\.\\d+");
-    }
-
-    // Helper method to check if operand is a boolean
-    public boolean isBoolean(String operand) {
-        return operand != null && (operand.equals("true") || operand.equals("false"));
     }
 
     public static void loadImmediate(String reg, int value){
@@ -298,64 +275,6 @@ public class MIPSGenerator {
         return tempReg;
     }
 
-    // Generate an arithmetic operation for doubles or integers
-    public String generateArithmeticOperation(String operator, Object operand1, Object operand2, Object result) {
-        String reg1 = allocateTempRegister();
-        String reg2 = allocateTempRegister();
-        String regResult = allocateTempRegister();
-
-        // Load the operands into registers
-        loadRegister(reg1, operand1);  // Load operand1 into reg1
-        loadRegister(reg2, operand2);  // Load operand2 into reg2
-
-        // Integer operations (add, sub, mul, div, and immediate versions)
-        if (operand1 instanceof Integer && operand2 instanceof Integer) {
-            switch (operator) {
-                case "+":
-                    if (isImmediate(operand2)) {
-                        addMipsInstruction("addi " + regResult + ", " + reg1 + ", " + operand2);
-                    } else {
-                        addMipsInstruction("add " + regResult + ", " + reg1 + ", " + reg2);
-                    }
-                    break;
-                case "-":
-                    if (isImmediate(operand2)) {
-                        addMipsInstruction("subi " + regResult + ", " + reg1 + ", " + operand2);
-                    } else {
-                        addMipsInstruction("sub " + regResult + ", " + reg1 + ", " + reg2);
-                    }
-                    break;
-                case "*":
-                    addMipsInstruction("mul " + regResult + ", " + reg1 + ", " + reg2);
-                    break;
-                case "/":
-                    addMipsInstruction("div " + reg1 + ", " + reg2);  // Integer division
-                    addMipsInstruction("mflo " + regResult);          // Move the result to the destination register
-                    break;
-                default:
-                    throw new IllegalArgumentException("Unsupported operator for integers: " + operator);
-            }
-        } else {
-            throw new IllegalArgumentException("Unsupported operand types: " + operand1.getClass() + ", " + operand2.getClass());
-        }
-
-        // Store result into the destination object (assuming it's an object that can hold the result)
-        addMipsInstruction("# Store result of operation into " + result);
-
-        // Free the registers after use
-        freeRegister(reg1);
-        freeRegister(reg2);
-        freeRegister(regResult);
-
-        // Return the register where the result is stored
-        return regResult;
-    }
-
-    // Helper method to check if the operand is an immediate value
-    private boolean isImmediate(Object operand) {
-        return operand instanceof Integer;
-    }
-
 
     public String generateConditional(String operator, Object operand1, Object operand2, String labelTrue, String labelFalse) {
         String reg1 = allocateTempRegister();  // Load operand1
@@ -370,11 +289,11 @@ public class MIPSGenerator {
             switch (operator) {
                 case "==":
                     addMipsInstruction("beq " + reg1 + ", " + reg2 + ", " +labelTrue);
-                    addMipsInstruction("j " +labelFalse);
+//                    addMipsInstruction("j " +labelFalse);
                     break;
                 case "!=":
                     addMipsInstruction("bne " + reg1 + ", " + reg2 + ", " +labelTrue);
-                    addMipsInstruction("j " +labelFalse);
+//                    addMipsInstruction("j " +labelFalse);
                     break;
                 default:
                     throw new IllegalArgumentException("Unsupported boolean operator: " + operator);
@@ -384,27 +303,27 @@ public class MIPSGenerator {
             switch (operator) {
                 case "==":
                     addMipsInstruction("beq " + reg1 + ", " + reg2 + ", " +labelTrue);
-                    addMipsInstruction("j " +labelFalse);
+//                    addMipsInstruction("j " +labelFalse);
                     break;
                 case "!=":
                     addMipsInstruction("bne " + reg1 + ", " + reg2 + ", " +labelTrue);
-                    addMipsInstruction("j " +labelFalse);
+//                    addMipsInstruction("j " +labelFalse);
                     break;
                 case "<":
                     addMipsInstruction("blt " + reg1 + ", " + reg2 + ", " +labelTrue);
-                    addMipsInstruction("j " +labelFalse);
+//                    addMipsInstruction("j " +labelFalse);
                     break;
                 case ">":
                     addMipsInstruction("bgt " + reg1 + ", " + reg2 + ", " +labelTrue);
-                    addMipsInstruction("j " +labelFalse);
+//                    addMipsInstruction("j " +labelFalse);
                     break;
                 case "<=":
                     addMipsInstruction("ble " + reg1 + ", " + reg2 + ", " +labelTrue);
-                    addMipsInstruction("j " +labelFalse);
+//                    addMipsInstruction("j " +labelFalse);
                     break;
                 case ">=":
                     addMipsInstruction("bge " + reg1 + ", " + reg2 + ", " +labelTrue);
-                    addMipsInstruction("j " +labelFalse);
+//                    addMipsInstruction("j " +labelFalse);
                     break;
                 default:
                     throw new IllegalArgumentException("Unsupported comparison operator: " + operator);
@@ -419,40 +338,185 @@ public class MIPSGenerator {
         return mipsCode.toString();
     }
 
+//    public static void generateLoop(String[] conditionTokens, String loopStart, String loopEnd, List<String> blockTokens) throws Exception {
+//        // Generate the MIPS code for the condition (evaluate only once at the start)
+//        if (generateMips && mipsGenerator != null) {
+//            System.out.println("Generating MIPS for condition (once)...");
+//
+//            evaluator.evaluateCondition(conditionTokens, loopStart, loopEnd, false); // First-time condition evaluation
+//        }
+//
+//        // Now execute the loop
+//        while (true) {
+//            // Re-evaluate the condition for each iteration
+//            System.out.println("\nRe-evaluating condition...");
+//            boolean conditionResult = evaluator.evaluateCondition(conditionTokens, loopStart, loopEnd, true);
+//
+//            // Print condition evaluation result
+//            System.out.println("Condition evaluated to " + (conditionResult ? "true" : "false"));
+//
+//            if (!conditionResult) {
+//                System.out.println("Condition evaluated to false, exiting loop.");
+//                break; // Exit the loop if condition evaluates to false
+//            }
+//
+//            // Execute the loop body (statements inside the loop)
+//            System.out.println("Generating MIPS for loop body...");
+//            StringBuilder statementBuilder = new StringBuilder();  // StringBuilder to concatenate tokens
+//
+//            for (String token : blockTokens) {
+//                token = token.trim(); // Trim whitespace
+//
+//                if (!token.isEmpty()) {
+//                    statementBuilder.append(token).append(" ");  // Concatenate tokens with space
+//
+//                    // If the token is a semicolon, execute the full statement
+//                    if (token.equals(";")) {
+//                        String fullStatement = statementBuilder.toString().trim();  // Build the full statement
+//                        System.out.println("Executing statement: " + fullStatement);
+//
+//                        // Ensure the statement ends with a semicolon
+//                        if (!fullStatement.endsWith(";")) {
+//                            fullStatement += ";";
+//                        }
+//
+//                        String[] fullStatementTokens = tokenizer.tokenize(fullStatement);
+//                        System.out.println("Tokenized statement: " + Arrays.toString(fullStatementTokens));
+//
+//                        // Pass the complete statement to executeCommand
+//                        executeCommand(fullStatementTokens);
+//
+//                        // Reset the StringBuilder for the next statement
+//                        statementBuilder.setLength(0);
+//                    }
+//                }
+//            }
+//
+//        }
+//
+//        // Jump back to the start of the loop to re-evaluate the condition
+//        mipsGenerator.addMipsInstruction("j " + loopStart); // No need to generate it every iteration
+//
+//        // Generate the loop end label (after the loop exits)
+//        mipsGenerator.addMipsInstruction(loopEnd + ":");
+//    }
+
+    public void generateIfElse(boolean conditionResult, List<String> ifInstructions, List<String> elseInstructions) {
+        String conditionReg = allocateTempRegister();
+        loadImmediate(conditionReg, conditionResult ? 1 : 0); // Load condition result (1 or 0)
+
+        String ifLabel = generateLabel("IF_BLOCK");
+        String elseLabel = generateLabel("ELSE_BLOCK");
+        String endLabel = generateLabel("END_IF_ELSE");
+
+        addMipsInstruction("bne " + conditionReg + ", $zero, " + ifLabel);
+        addMipsInstruction("j " + elseLabel);
+
+        addLabel(ifLabel);
+        for (String instr : ifInstructions) {
+            addMipsInstruction(instr);
+        }
+        addMipsInstruction("j " + endLabel);
+
+        addLabel(elseLabel);
+        for (String instr : elseInstructions) {
+            addMipsInstruction(instr);
+        }
+
+        addLabel(endLabel);
+        freeRegister(conditionReg);
+    }
+
+
+    // Generate MIPS code for a 'while' loop
+    public void generateWhileLoop(String condition, List<String> loopBody) {
+        // Generate a unique label for the start and end of the loop
+        String startLabel = generateLabel();
+        String endLabel = generateLabel();
+
+        // Start of the while loop
+        addMipsInstruction(startLabel + ":");
+
+        // Evaluate condition (you need to generate MIPS code for condition checking)
+        String conditionResult = evaluateExpression(condition);
+        addMipsInstruction("beq " + conditionResult + ", $zero, " + endLabel); // If condition is false, jump to end of loop
+
+        // Loop body
+        for (String instruction : loopBody) {
+            addMipsInstruction(instruction);  // Add instructions for the body of the loop
+        }
+
+        // Loop iteration (if necessary, for example, incrementing a counter)
+        addMipsInstruction("j " + startLabel);  // Jump back to start of the loop
+
+        // End of the while loop
+        addMipsInstruction(endLabel + ":");
+    }
+
+    // Method to generate the MIPS code for printing an integer (value in $a0)
+    public void generatePrint(String variable) {
+        // Assuming the variable is located at the top of the stack
+        // Load the value of 'variable' into $a0
+        addMipsInstruction("lw $a0, 0($sp)");   // Load the value of the variable into $a0
+        addMipsInstruction("li $v0, 1");         // Syscall code for print integer
+        addMipsInstruction("syscall");           // Perform the syscall to print the integer
+    }
+
+    // Method to generate the MIPS code for incrementing a variable (value in $t0)
+    public void generateIncrement(String variable) {
+        // Load the value of 'variable' (i) into $t0
+        addMipsInstruction("lw $t0, 0($sp)");    // Load the value of 'i' into $t0
+        addMipsInstruction("addi $t0, $t0, 1");   // Increment 'i' by 1
+        addMipsInstruction("sw $t0, 0($sp)");     // Store the updated value of 'i' back into memory
+    }
+
+    // Method to handle the entire for loop with the print and increment functionality
+    public void generateForLoop(String initialization, String condition, String increment, List<String> bodyTokens) {
+        // You can add initialization logic here
+        addMipsInstruction(initialization);  // Initialize the loop variable
+
+        // Loop start label
+        addMipsInstruction("label_8:");
+        addMipsInstruction(condition);  // Check the loop condition
+
+        // Loop body (e.g., print 'i')
+        for (String bodyToken : bodyTokens) {
+            if (bodyToken.equals("print(i)")) {
+                generatePrint("i");  // Call the print method
+            }
+        }
+
+        // Increment the loop variable (i++)
+        generateIncrement("i");  // Call the increment method
+
+        // Jump back to the start of the loop or exit
+        addMipsInstruction("j label_8");
+        addMipsInstruction("label_9:");  // End of the loop
+    }
+
+    private String generateLabel() {
+        return "label_" + labelCounter++;  // Increment and return a unique label
+    }
+
     // Add an instruction to the list of generated MIPS code
     public static void addMipsInstruction(String instruction) {
         mipsCode.add(instruction);
-    }
-
-    public String appendToMIPSOutput(String mipsCode){
-        StringBuilder mipsOutput = new StringBuilder();
-        mipsOutput.append(mipsCode).append("\n");
-        return mipsOutput.toString();
-    }
-
-    public static String generateMIPSForStatement(String[] statementTokens) throws Exception{
-        return "# MIPS code for: " +String.join(" ", statementTokens);
     }
 
     public String generateLabel(String baseName){
         return baseName + "_" +labelCounter++;
     }
 
-    public void addLabeledInstruction(String label, String instruction){
-        mipsCode.add(label + ": " + instruction);
-    }
-
     public void addLabel(String label){
         mipsCode.add(label+ ":");
     }
 
-    public void loadFromData(String variableName, String register){
-        addMipsInstruction("lw " +register+ ", " +variableName+ "($gp)");
+    public void addComment(String comment){
+        mipsCode.add("# " +comment);
     }
 
-    public void printRegisterState(){
-        System.out.println("Free Registers: " +freeRegisters);
-        System.out.println("Used Registers: " +usedRegisters);
+    public void loadFromData(String variableName, String register){
+        addMipsInstruction("lw " +register+ ", " +variableName+ "($gp)");
     }
 
     public void generateDataSection(){

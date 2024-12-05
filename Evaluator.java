@@ -296,16 +296,24 @@ public class Evaluator {
         }
 
         // Generate MIPS code with unique labels for the current condition
-        if (mipsGenerator != null) {
-            // Pass the actual values and labels
-            String conditionMIPS = mipsGenerator.generateConditional(operator, leftValue, rightValue, labelTrue, labelFalse);
-            System.out.println("Generated MIPS Code: " + conditionMIPS);
-        } else {
-            System.out.println("MIPSGenerator is not initialized.");
-        }
+//        if (generateMips) {
+//            if (mipsGenerator != null) {
+//                String conditionMIPS = mipsGenerator.generateConditional(operator, leftValue, rightValue, labelTrue, labelFalse);
+//                System.out.println("Generated MIPS Code: " + conditionMIPS);
+//            } else {
+//                System.out.println("MIPSGenerator is not initialized.");
+//            }
+//        } else {
+//            System.out.println("MIPS code generation is disabled.");
+//        }
 
         // Perform the comparison based on operand types
-        if (leftValue instanceof Integer && rightValue instanceof Integer) {
+        if (leftValue instanceof Boolean && rightValue instanceof Boolean) {
+            // Handle boolean comparison explicitly
+            boolean left = (Boolean) leftValue;
+            boolean right = (Boolean) rightValue;
+            return evaluateBooleanCondition(left, right, operator);
+        }else if (leftValue instanceof Integer && rightValue instanceof Integer) {
             int left = (Integer) leftValue;
             int right = (Integer) rightValue;
             return evaluateNumericCondition(left, right, operator);
@@ -313,6 +321,17 @@ public class Evaluator {
             double left = convertToDouble(leftValue);
             double right = convertToDouble(rightValue);
             return evaluateNumericCondition(left, right, operator);
+        }
+    }
+
+    private boolean evaluateBooleanCondition(boolean left, boolean right, String operator) {
+        switch (operator) {
+            case "==":
+                return left == right;
+            case "!=":
+                return left != right;
+            default:
+                throw new IllegalArgumentException("Unsupported boolean operator: " + operator);
         }
     }
 
@@ -350,7 +369,6 @@ public class Evaluator {
             throw new Exception("Cannot convert value to Double: " + value + " (type: " + value.getClass().getSimpleName() + ")");
         }
     }
-
 
     public Object getValueFromOperand(String operand) throws Exception {
         // Check if the operand is a variable in the SymbolTable
