@@ -344,119 +344,103 @@ public class MIPSGenerator {
         return mipsCode.toString();
     }
 
-//    public static void generateLoop(String[] conditionTokens, String loopStart, String loopEnd, List<String> blockTokens) throws Exception {
-//        // Generate the MIPS code for the condition (evaluate only once at the start)
-//        if (generateMips && mipsGenerator != null) {
-//            System.out.println("Generating MIPS for condition (once)...");
-//
-//            evaluator.evaluateCondition(conditionTokens, loopStart, loopEnd, false); // First-time condition evaluation
-//        }
-//
-//        // Now execute the loop
-//        while (true) {
-//            // Re-evaluate the condition for each iteration
-//            System.out.println("\nRe-evaluating condition...");
-//            boolean conditionResult = evaluator.evaluateCondition(conditionTokens, loopStart, loopEnd, true);
-//
-//            // Print condition evaluation result
-//            System.out.println("Condition evaluated to " + (conditionResult ? "true" : "false"));
-//
-//            if (!conditionResult) {
-//                System.out.println("Condition evaluated to false, exiting loop.");
-//                break; // Exit the loop if condition evaluates to false
-//            }
-//
-//            // Execute the loop body (statements inside the loop)
-//            System.out.println("Generating MIPS for loop body...");
-//            StringBuilder statementBuilder = new StringBuilder();  // StringBuilder to concatenate tokens
-//
-//            for (String token : blockTokens) {
-//                token = token.trim(); // Trim whitespace
-//
-//                if (!token.isEmpty()) {
-//                    statementBuilder.append(token).append(" ");  // Concatenate tokens with space
-//
-//                    // If the token is a semicolon, execute the full statement
-//                    if (token.equals(";")) {
-//                        String fullStatement = statementBuilder.toString().trim();  // Build the full statement
-//                        System.out.println("Executing statement: " + fullStatement);
-//
-//                        // Ensure the statement ends with a semicolon
-//                        if (!fullStatement.endsWith(";")) {
-//                            fullStatement += ";";
-//                        }
-//
-//                        String[] fullStatementTokens = tokenizer.tokenize(fullStatement);
-//                        System.out.println("Tokenized statement: " + Arrays.toString(fullStatementTokens));
-//
-//                        // Pass the complete statement to executeCommand
-//                        executeCommand(fullStatementTokens);
-//
-//                        // Reset the StringBuilder for the next statement
-//                        statementBuilder.setLength(0);
-//                    }
-//                }
-//            }
-//
-//        }
-//
-//        // Jump back to the start of the loop to re-evaluate the condition
-//        mipsGenerator.addMipsInstruction("j " + loopStart); // No need to generate it every iteration
-//
-//        // Generate the loop end label (after the loop exits)
-//        mipsGenerator.addMipsInstruction(loopEnd + ":");
-//    }
+    public String convertConditionToMips(String condition, String loopVarRegister, SymbolTable symbolTable) {
+        // Split the condition into the operator and the value
+        String[] parts = condition.split("\\s*([<=>!]=?|==)\\s*");
+        String leftOperand = parts[0].trim(); // This should be the loop variable (e.g., "i")
+        String operator = condition.replaceAll("[^<=>!]+", "").trim(); // Extract operators like <, >, ==, etc.
+        String rightOperand = parts[1].trim(); // This is the value (e.g., "5")
 
-    public void generateIfElse(boolean conditionResult, List<String> ifInstructions, List<String> elseInstructions) {
-        String conditionReg = allocateTempRegister();
-        loadImmediate(conditionReg, conditionResult ? 1 : 0); // Load condition result (1 or 0)
+        System.out.println("Left operand: " + leftOperand + ", Operator: " + operator + ", Right operand: " + rightOperand);
 
-        String ifLabel = generateLabel("IF_BLOCK");
-        String elseLabel = generateLabel("ELSE_BLOCK");
-        String endLabel = generateLabel("END_IF_ELSE");
-
-        addMipsInstruction("bne " + conditionReg + ", $zero, " + ifLabel);
-        addMipsInstruction("j " + elseLabel);
-
-        addLabel(ifLabel);
-        for (String instr : ifInstructions) {
-            addMipsInstruction(instr);
-        }
-        addMipsInstruction("j " + endLabel);
-
-        addLabel(elseLabel);
-        for (String instr : elseInstructions) {
-            addMipsInstruction(instr);
+        // Retrieve the register for the left operand (loop variable) from the SymbolTable
+        String leftOperandRegister = symbolTable.getRegister(leftOperand);
+        if (leftOperandRegister == null) {
+            throw new IllegalArgumentException("The variable '" + leftOperand + "' does not have a register in the SymbolTable.");
         }
 
-        addLabel(endLabel);
-        freeRegister(conditionReg);
+        // Determine the comparison value (whether it's a variable, integer, or double)
+        String comparisonValue;
+        if (rightOperand.matches("\\d+")) { // If it's an integer literal
+            comparisonValue = rightOperand;
+        } else if (rightOperand.matches("\\d*\\.\\d+")) { // If it's a double literal
+            comparisonValue = rightOperand;
+        } else {
+            comparisonValue = "$" + rightOperand; // If it's a variable, use its register
+        }
+
+        // Generate MIPS based on the operator
+        String mipsInstruction = "";
+        switch (operator) {
+            case "<":
+                mipsInstruction = "blt " + leftOperandRegister + ", " + comparisonValue + ", label_9"; // Branch if less than
+                break;
+            case ">":
+                mipsInstruction = "bgt " + leftOperandRegister + ", " + comparisonValue + ", label_9"; // Branch if greater than
+                break;
+            case "<=":
+                mipsInstruction = "ble " + leftOperandRegister + ", " + comparisonValue + ", label_9"; // Branch if less than or equal
+                break;
+            case ">=":
+                mipsInstruction = "bge " + leftOperandRegister + ", " + comparisonValue + ", label_9"; // Branch if greater than or equal
+                break;
+            case "==":
+                mipsInstruction = "beq " + leftOperandRegister + ", " + comparisonValue + ", label_9"; // Branch if equal
+                break;
+            case "!=":
+                mipsInstruction = "bne " + leftOperandRegister + ", " + comparisonValue + ", label_9"; // Branch if not equal
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported operator: " + operator);
+        }
+
+        System.out.println("Generated MIPS instruction: " + mipsInstruction);
+        return mipsInstruction;
+    }
+
+
+    public void generateIfElse(String condition, List<String> bodyTokens) {
+        String labelTrue = generateLabel();
+        String labelFalse = generateLabel();
+        String labelEnd = generateLabel();
+
+        addMipsInstruction("bnez " + condition + ", " + labelTrue);  // Branch if condition is true
+        addMipsInstruction("j " + labelFalse);  // Else part
+        addMipsInstruction(labelTrue + ":");
+
+        // Process body of the if part
+        for (String bodyToken : bodyTokens) {
+            processBodyToken(bodyToken);
+        }
+
+        addMipsInstruction("j " + labelEnd);  // Jump to end
+        addMipsInstruction(labelFalse + ":");
+
+        // Handle else part (if any)
+        addMipsInstruction(labelEnd + ":");
     }
 
 
     // Generate MIPS code for a 'while' loop
-    public void generateWhileLoop(String condition, List<String> loopBody) {
-        // Generate a unique label for the start and end of the loop
-        String startLabel = generateLabel();
-        String endLabel = generateLabel();
+    // Method to generate MIPS code for a while loop
+    public void generateWhileLoop(String condition, List<String> bodyTokens) {
+        String labelStart = generateLabel();  // Generate labels for the loop
+        String labelEnd = generateLabel();
 
-        // Start of the while loop
-        addMipsInstruction(startLabel + ":");
+        // Generate MIPS code for the loop start
+        addMipsInstruction(labelStart + ":");
+        addMipsInstruction("bnez " + condition + ", " + labelEnd);  // Exit loop if condition is false
 
-        // Evaluate condition (you need to generate MIPS code for condition checking)
-        String conditionResult = evaluateExpression(condition);
-        addMipsInstruction("beq " + conditionResult + ", $zero, " + endLabel); // If condition is false, jump to end of loop
-
-        // Loop body
-        for (String instruction : loopBody) {
-            addMipsInstruction(instruction);  // Add instructions for the body of the loop
+        // Process the body of the loop
+        for (String bodyToken : bodyTokens) {
+            processBodyToken(bodyToken);
         }
 
-        // Loop iteration (if necessary, for example, incrementing a counter)
-        addMipsInstruction("j " + startLabel);  // Jump back to start of the loop
+        // Jump back to the start of the loop
+        addMipsInstruction("j " + labelStart);
 
-        // End of the while loop
-        addMipsInstruction(endLabel + ":");
+        // End of loop label
+        addMipsInstruction(labelEnd + ":");
     }
 
     public String assignRegister(String variable) {
@@ -477,14 +461,16 @@ public class MIPSGenerator {
 
 
     // Method to generate the MIPS code for printing an integer (value in $a0)
-    public void generatePrint(String variable) {
-        // Assuming the variable is located at the top of the stack
-        // Load the value of 'variable' into $a0
-        String reg = symbolTable.getRegister(variable);
-        addMipsInstruction("move $a0, " +reg);
-        addMipsInstruction("li $v0, 1");         // Syscall code for print integer
-        addMipsInstruction("syscall");           // Perform the syscall to print the integer
+    public void generatePrint(String register) {
+        if (register != null) {
+            addMipsInstruction("li $v0, 1");  // Load syscall number for print integer
+            addMipsInstruction("move $a0, " + register);  // Move the value (register) to $a0
+            addMipsInstruction("syscall");  // Perform the syscall to print the value
+        } else {
+            System.out.println("No valid register for print statement.");
+        }
     }
+
 
     // Method to generate the MIPS code for incrementing a variable (value in $t0)
     public void generateIncrement(String variable) {
@@ -504,25 +490,50 @@ public class MIPSGenerator {
 
     // Method to handle the entire for loop with the print and increment functionality
     public void generateForLoop(String initialization, String condition, String increment, List<String> bodyTokens) {
-        // Initialize the loop variable
-        String loopVar = initialization.split("=")[0].trim(); // Extract variable (e.g., "i")
-        String initialValue = initialization.split("=")[1].trim(); // Extract initial value (e.g., "0")
+        String loopVar = initialization.split("=")[0].trim();
+        String initialValue = initialization.split("=")[1].trim();
         String register = assignRegister(loopVar);
 
-        // Load the initial value into the assigned register
-        addMipsInstruction("li " + register + ", " + initialValue);
+        symbolTable.addRegisterToVariable(loopVar, register);
 
-        // Start of the loop
+        addMipsInstruction("li " + register + ", " + initialValue);
         addMipsInstruction("label_8:");
 
         // Condition check
-        addMipsInstruction("# Check condition for " + loopVar);
-        addMipsInstruction(condition);
+        addComment("Check condition for " + loopVar);
+        String mipsCondition = convertConditionToMips(condition, register, symbolTable);
+        addMipsInstruction(mipsCondition); // Add the MIPS condition here
 
-        // Loop body
-        for (String bodyToken : bodyTokens) {
+        // Process the body of the loop
+        for (int i = 0; i < bodyTokens.size(); i++) {
+            String bodyToken = bodyTokens.get(i).trim();
+
             if (bodyToken.equals("print")) {
-                generatePrint(loopVar); // Use loop variable name
+                // Check for the expected format: print ( variable )
+                if (i + 2 < bodyTokens.size() && bodyTokens.get(i + 1).equals("(") && bodyTokens.get(i + 3).equals(")")) {
+                    String value = bodyTokens.get(i + 2).trim(); // Variable inside parentheses
+
+                    if (value.isEmpty()) {
+                        System.out.println("Error: Malformed print statement near index " + i);
+                        continue;
+                    }
+
+                    // Retrieve the register associated with the variable
+                    String printRegister = symbolTable.getRegisterForVariable(value);
+
+                    if (printRegister == null) {
+                        System.out.println("Error: No register found for variable '" + value + "' in print statement.");
+                    } else {
+                        generatePrint(printRegister);
+                    }
+
+                    // Skip the processed tokens: 'print', '(', variable, ')'
+                    i += 3;
+                } else {
+                    System.out.println("Error: Malformed print statement near index " + i);
+                }
+            } else {
+                processBodyToken(bodyToken); // Process other tokens
             }
         }
 
@@ -536,7 +547,92 @@ public class MIPSGenerator {
         addMipsInstruction("label_9:");
     }
 
-    
+    private void processBodyToken(String bodyToken) {
+        bodyToken = bodyToken.trim();
+        System.out.println("Processing body token: '" + bodyToken + "'");
+
+        if(bodyToken.equals(";")){
+            return;
+        }else if (bodyToken.equals("print")) {
+            // Edge case: print keyword without parentheses
+            System.out.println("Invalid print statement: Missing parentheses or argument.");
+        } else if (bodyToken.matches("int\\s+\\w+\\s*=\\s*\\d+")) {
+            // Handle variable declarations
+            String[] parts = bodyToken.split("\\s+");
+            String variableName = parts[1];
+            String value = parts[3];
+            declareVariable(variableName, value);
+
+        } else if (bodyToken.matches("\\w+\\s*=\\s*.+")) {
+            // Handle assignments and arithmetic expressions
+            String variableName = bodyToken.split("=")[0].trim();
+            String expression = bodyToken.split("=")[1].trim();
+            generateAssignment(variableName, expression);
+
+        } else if (bodyToken.startsWith("if")) {
+            // Handle if-else
+            String condition = extractCondition(bodyToken);
+            List<String> bodyTokens = extractBodyTokens(bodyToken);
+            generateIfElse(condition, bodyTokens);
+
+        } else if (bodyToken.startsWith("while")) {
+            // Handle while loops
+            String condition = extractCondition(bodyToken);
+            List<String> bodyTokens = extractBodyTokens(bodyToken);
+            generateWhileLoop(condition, bodyTokens);
+
+        } else {
+            throw new IllegalArgumentException("Unrecognized body token: " + bodyToken);
+        }
+    }
+    public String getRegisterForExpression(String value) {
+        System.out.println("Getting register for expression: " + value);  // Debug print
+
+        if (value.matches("\\d+")) { // Check if it's a number
+            return "$" + value;  // Return it as an immediate value (e.g., $5)
+        } else {
+            String variableName = value.trim();
+            System.out.println("Looking up register for variable: " + variableName);  // Debug print
+
+            // For variables, lookup the register from the symbol table
+            String register = symbolTable.getRegisterForVariable(variableName);
+            if (register != null) {
+                return register;
+            } else {
+                System.out.println("No register found for variable: " + variableName);  // Debug print
+                return null;
+            }
+        }
+    }
+
+
+    // Extract condition from an 'if' or 'while' statement
+    private String extractCondition(String token) {
+        int start = token.indexOf("(") + 1;
+        int end = token.indexOf(")");
+        if (start == -1 || end == -1) {
+            throw new IllegalArgumentException("Condition not found in token: " + token);
+        }
+        return token.substring(start, end).trim();
+    }
+
+    // Extract body (statements inside curly braces) from an 'if' or 'while' statement
+    private List<String> extractBodyTokens(String token) {
+        int start = token.indexOf("{") + 1;
+        int end = token.indexOf("}");
+        if (start == -1 || end == -1) {
+            throw new IllegalArgumentException("Body not found in token: " + token);
+        }
+        String body = token.substring(start, end).trim();
+        return Arrays.asList(body.split(";")); // Assuming each statement in the body is separated by semicolons
+    }
+
+    public void declareVariable(String variableName, String value){
+        String reg = symbolTable.getRegister(variableName);
+
+        addMipsInstruction("li " +reg+ ", " +value);
+    }
+
 
     private String generateLabel() {
         return "label_" + labelCounter++;  // Increment and return a unique label

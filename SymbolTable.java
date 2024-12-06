@@ -135,13 +135,20 @@ public class SymbolTable {
     }
 
     public String getRegisterForVariable(String variableName) {
+        System.out.println("Looking up register for variable name: " + variableName);  // Debug print
+
         for (Map.Entry<Integer, Entry> entry : table.entrySet()) {
+            System.out.println("Checking variable: " + entry.getValue().getName());  // Debug print
+
             if (entry.getValue().getName().equals(variableName)) {
                 return entry.getValue().getRegister();
             }
         }
+
+        System.out.println("No register found for variable: " + variableName);  // Debug print
         return null; // Return null if the variable is not found
     }
+
 
 
     /**********************************************************
