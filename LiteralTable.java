@@ -21,6 +21,7 @@
  * CREDITS: This code was written with the help of ChatGPT.         *
  *******************************************************************/
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -28,6 +29,12 @@ public class LiteralTable{
     private final Map<Integer, Object> literalTable = new HashMap<>();
 
     private int nextLiteralID = 900;
+
+    private Map<String, Token> tokens;
+
+    public LiteralTable(){
+        tokens = new HashMap<>();
+    }
 
     public int addLiteral(Object value){
         if(!literalTable.containsValue(value)){
@@ -56,6 +63,14 @@ public class LiteralTable{
         return -1;
     }
 
+    public void addToken(String key, Token token){
+        tokens.put(key, token);
+    }
+
+    public Collection<Token> getTokens(){
+        return tokens.values();
+    }
+
     public boolean containsValue(Object value){
         return literalTable.containsValue(value);
     }
@@ -77,6 +92,10 @@ public class LiteralTable{
                 return null;
             }
         }
+    }
+
+    public Map<Integer, Object> getLiteralTable(){
+        return literalTable;
     }
 
 

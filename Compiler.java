@@ -39,6 +39,7 @@ public class Compiler {
     private static int controlStructure = 0;
     private static MIPSGenerator mipsGenerator;
     private static boolean generateMips = true;
+    private static TokenIDConverter converter;
 
     static{
         symbolTable =  new SymbolTable();
@@ -48,6 +49,7 @@ public class Compiler {
         keywordTable = new KeywordTable();
         operatorTable = new OperatorTable();
         tokenizer = new Tokenization();
+        converter = new TokenIDConverter(symbolTable, literalTable, operatorTable, keywordTable);
     }
 
     /**********************************************************
@@ -149,6 +151,23 @@ public class Compiler {
                     }
                 }
             }
+
+            // Now call the printTokenIDsInBinary method to write output to the file
+            if (writer != null) {
+                writer.println();
+              converter.printTokenIDsInBinary(symbolTable, writer); // Modify to call the correct instance
+                writer.println();
+
+                converter.printTokenIDsInBinary(literalTable, writer); // Modify to call the correct instance
+                writer.println();
+
+               converter.printTokenIDsInBinary(operatorTable, writer); // Modify to call the correct instance
+                writer.println();
+
+                converter.printTokenIDsInBinary(keywordTable, writer); // Modify to call the correct instance
+                writer.println();
+            }
+
 
         } catch (IOException e) {
             System.out.println("Error reading or writing files: " + e.getMessage());
@@ -669,25 +688,18 @@ public class Compiler {
             // Check if the variable is already declared
             if (!symbolTable.containsVariable(variableName)) {
                 String allocatedRegister = mipsGenerator.allocateSavedRegister();
-                // Allocate space in the data section (for the first time) and add entry in symbol table
+                // Allocate space in the symbol table, but don't add to data section
                 symbolTable.addEntry(variableName, "int", 0, scope, allocatedRegister);
-                // Add to the data section for storage
-                mipsGenerator.addToDataSection(variableName, valueToken, "int");
                 System.out.println("Encountered new symbol " + variableName + " with id " + symbolTable.getIdByName(variableName));
             }
 
             try {
                 int value = Integer.parseInt(valueToken); // Convert the token to an integer
-                symbolTable.updateValue(variableName, value); // Update the variable's value in the symbol table
 
-                // Add to the literal table if necessary
-                int literalID = literalTable.addLiteral(value);
-                System.out.println("Encountered new literal " + value + " with id " + literalID);
-
-                // MIPS Code Generation: Store the value in the register
+                // No need to store in memory, just update symbol table and work with registers
                 String reg = mipsGenerator.allocateTempRegister();
                 mipsGenerator.loadImmediate(reg, value); // Load the value into a temporary register
-                mipsGenerator.storeToMemory(variableName, reg); // Store the value into the variable
+                symbolTable.updateValue(variableName, value); // Update the variable's value in the symbol table (no memory write)
 
                 mipsGenerator.freeRegister(reg); // Free the register after use
 
@@ -695,7 +707,7 @@ public class Compiler {
                 Integer integerTokenID = keywordTable.get("integer");
                 Integer assignTokenID = operatorTable.get("=");
                 Integer semicolonTokenID = operatorTable.get(";");
-                System.out.print("TokenIDs: " + integerTokenID + " " + symbolTable.getIdByName(variableName) + " " + assignTokenID + " " + literalID + " " + semicolonTokenID + " ");
+                System.out.print("TokenIDs: " + integerTokenID + " " + symbolTable.getIdByName(variableName) + " " + assignTokenID + " " + literalTable.getLiteralID(value) + " " + semicolonTokenID + " ");
                 System.out.println();
                 System.out.println("Code Generators: " + CodeGenerator.START_DEFINE + " " + CodeGenerator.END_DEFINE);
 
@@ -713,8 +725,6 @@ public class Compiler {
                     String register = mipsGenerator.allocateSavedRegister();
                     String scope = isInsideControlStructure() ? "local" : "global";
                     symbolTable.addEntry(variableName, "int", 0, scope, register); // Declare it if not
-                    // Allocate space for the new variable in the data section
-                    mipsGenerator.addToDataSection(variableName, "0", "int"); // Initialize with 0 or whatever initial value is appropriate
                     System.out.println("Encountered new symbol " + variableName + " with id " + symbolTable.getIdByName(variableName));
                 }
 
@@ -731,10 +741,10 @@ public class Compiler {
                         result = (int) doubleResult;
                     }
                     if (result instanceof Integer) {
-                        symbolTable.updateValue(variableName, (Integer) result); // Update the value in symbol table
+                        symbolTable.updateValue(variableName, (Integer) result); // Update the value in symbol table (no memory write)
                         System.out.println("Assigned integer value: " + result + " to variable: " + variableName);
 
-                        // Add to literal table after computation
+                        // Add to literal table after computation (no need to store in memory)
                         int literalID = literalTable.addLiteral((Integer) result);
                         System.out.println("Encountered new literal " + result + " with id " + literalID);
                     } else {
@@ -742,7 +752,7 @@ public class Compiler {
                     }
                 } else {
                     // Handle other types (e.g., double) if needed
-                    symbolTable.updateValue(variableName, result);
+                    symbolTable.updateValue(variableName, result); // Update the value in symbol table
                 }
 
                 Integer assignTokenID = operatorTable.get("=");
@@ -759,10 +769,10 @@ public class Compiler {
                 String[] expressionTokens = valueExpression.split(" ");
                 for (String token : expressionTokens) {
                     if (token.equals("+") || token.equals("-") || token.equals("*") || token.equals("/")) {
-                        // Handle arithmetic operator
+                        // Handle arithmetic operator (no need to store anything in memory)
                         String operand1 = expressionTokens[0]; // First operand
                         String operand2 = expressionTokens[2]; // Second operand
-//                        mipsGenerator.generateArithmeticOperation(token, operand1, operand2, variableName);
+                        // mipsGenerator.generateArithmeticOperation(token, operand1, operand2, variableName);
                     }
                 }
 
@@ -786,77 +796,73 @@ public class Compiler {
      **********************************************************/
 
     public static void handleWhileLoop(String condition, List<String> blockTokens) throws Exception {
-        // Tokenize the condition using the Tokenization class
-        System.out.println("Tokenizing condition: " + condition);
-        String[] conditionTokensArray = tokenizer.tokenize(condition); // Tokenize the condition
+        System.out.println("Handling while loop with condition: " + condition);
+        System.out.println("Block tokens: " + blockTokens);
 
-        // Generate labels for the loop, but only once
-        String loopStart = mipsGenerator.generateLabel("while_start");
-        String loopEnd = mipsGenerator.generateLabel("while_end");
-
-        // Print the generated loop start label once
-        mipsGenerator.addMipsInstruction(loopStart + ":");
-
-        // Generate the MIPS code for the condition (evaluate only once at the start)
-        if (generateMips && mipsGenerator != null) {
-            System.out.println("Generating MIPS for condition (once)...");
-            evaluator.evaluateCondition(conditionTokensArray, loopStart, loopEnd); // First-time condition evaluation
+        // Ensure that blockTokens is not empty
+        if (blockTokens.isEmpty()) {
+            throw new IllegalArgumentException("Block tokens cannot be empty.");
         }
 
-        // Now execute the loop
-        while (true) {
-            // Re-evaluate the condition for each iteration
-            System.out.println("\nRe-evaluating condition...");
-            boolean conditionResult = evaluator.evaluateCondition(conditionTokensArray, loopStart, loopEnd);
+        // Generate MIPS code once before the loop starts
+//        try {
+            mipsGenerator.generateWhileLoop(condition, blockTokens);
+            System.out.println("MIPS code for while loop generated successfully.");
+//        } catch (Exception e) {
+//            System.err.println("Error during MIPS generation: " + e.getMessage());
+//            throw e;
+//        }
 
-            // Print condition evaluation result
-            System.out.println("Condition evaluated to " + (conditionResult ? "true" : "false"));
+        // Logical execution of the loop
+        while (true) {
+            System.out.println("\nRe-evaluating condition...");
+
+            // Tokenize the condition to break it into individual tokens
+            String[] conditionTokensArray = tokenizer.tokenize(condition);
+            System.out.println("Condition tokens: " + Arrays.toString(conditionTokensArray));
+
+            // Evaluate the condition
+            boolean conditionResult = evaluator.evaluateCondition(conditionTokensArray);
+            System.out.println("Condition evaluated to: " + (conditionResult ? "true" : "false"));
 
             if (!conditionResult) {
                 System.out.println("Condition evaluated to false, exiting loop.");
-                break; // Exit the loop if condition evaluates to false
+                break; // Exit loop if the condition is false
             }
 
-            // Execute the loop body (statements inside the loop)
-            System.out.println("Generating MIPS for loop body...");
-            StringBuilder statementBuilder = new StringBuilder();  // StringBuilder to concatenate tokens
-
+            // Execute the body of the loop
+            StringBuilder statementBuilder = new StringBuilder();
             for (String token : blockTokens) {
-                token = token.trim(); // Trim whitespace
-
-                if (!token.isEmpty()) {
-                    statementBuilder.append(token).append(" ");  // Concatenate tokens with space
-
-                    // If the token is a semicolon, execute the full statement
-                    if (token.equals(";")) {
-                        String fullStatement = statementBuilder.toString().trim();  // Build the full statement
-                        System.out.println("Executing statement: " + fullStatement);
-
-                        // Ensure the statement ends with a semicolon
-                        if (!fullStatement.endsWith(";")) {
-                            fullStatement += ";";
-                        }
-
-                        String[] fullStatementTokens = tokenizer.tokenize(fullStatement);
-                        System.out.println("Tokenized statement: " + Arrays.toString(fullStatementTokens));
-
-                        // Pass the complete statement to executeCommand
-                        executeCommand(fullStatementTokens);
-
-                        // Reset the StringBuilder for the next statement
-                        statementBuilder.setLength(0);
-                    }
-                }
+                statementBuilder.append(token).append(" ");
             }
 
+            String fullStatement = statementBuilder.toString().trim();
+            if (!fullStatement.endsWith(";")) {
+                fullStatement += ";";
+            }
+
+            System.out.println("Full loop body statement: " + fullStatement);
+
+            // Tokenize the loop body
+            String[] loopBodyTokens = tokenizer.tokenize(fullStatement);
+            System.out.println("Loop body tokens: " + Arrays.toString(loopBodyTokens));
+
+            // Check if loop body tokens are empty or invalid
+            if (loopBodyTokens.length == 0) {
+                throw new IllegalArgumentException("Loop body tokens cannot be empty.");
+            }
+
+            // Execute the loop body commands
+            try {
+                executeCommand(loopBodyTokens);
+                System.out.println("Loop body executed successfully.");
+            } catch (Exception e) {
+                System.err.println("Error during loop body execution: " + e.getMessage());
+                break; // Break out of the loop if execution fails
+            }
         }
-
-        // Jump back to the start of the loop to re-evaluate the condition
-        mipsGenerator.addMipsInstruction("j " + loopStart); // No need to generate it every iteration
-
-        // Generate the loop end label (after the loop exits)
-        mipsGenerator.addMipsInstruction(loopEnd + ":");
     }
+
 
     /**********************************************************
      * METHOD: handleIfElse(String[] tokens)
@@ -896,7 +902,7 @@ public class Compiler {
         // Evaluate the condition
         boolean conditionResult;
         try {
-            conditionResult = evaluator.evaluateCondition(conditionTokens, "If-true", "If-false");
+            conditionResult = evaluator.evaluateCondition(conditionTokens);
             System.out.println("Condition evaluated successfully: " + conditionResult);
         } catch (Exception e) {
             System.err.println("Exception during condition evaluation: " + e.getMessage());
@@ -1098,18 +1104,6 @@ public class Compiler {
 //            String offset = symbolTable.getOffsetByName(loopVar);
         }
 
-        String mipsInitialized = "li $t0, " + initValue;
-        mipsGenerator.addMipsInstruction(mipsInitialized);
-        String varOffset = symbolTable.getOffsetByName(loopVar);
-        String mipsStore;
-        if(varOffset == null){
-            mipsStore = "sw $t0, 0($sp)";
-        } else {
-            mipsStore = "sw $t0, " + varOffset + "($sp)";
-        }
-
-        mipsGenerator.addMipsInstruction(mipsStore);
-
         // Step 5: Parse the condition
         String[] conditionTokens = condition.split(" ");
 
@@ -1121,7 +1115,7 @@ public class Compiler {
         mipsGenerator.generateForLoop(initialization, condition, increment, Arrays.asList(bodyTokens));
 
         // Start the loop, continue to use the same registers
-        boolean conditionResult = evaluator.evaluateCondition(conditionTokens, "for-true", "for-false");
+        boolean conditionResult = evaluator.evaluateCondition(conditionTokens);
         while (conditionResult) {
             // Debugging: Check the value of 'i' before executing the loop body
             System.out.println("Before loop body: i = " + symbolTable.getValueById(symbolTable.getIdByName(loopVar)));
@@ -1141,7 +1135,7 @@ public class Compiler {
             }
 
             // Recheck the condition after incrementing
-            conditionResult = evaluator.evaluateCondition(conditionTokens, "for-t", "for-f");
+            conditionResult = evaluator.evaluateCondition(conditionTokens);
         }
     }
 
@@ -1183,7 +1177,7 @@ public class Compiler {
         String incrementOperator = tokens[12];  // "i++"
 
         // Step 5: Start the loop, evaluate the condition, and execute the body
-        for (int i = startValue; evaluator.evaluateCondition(conditionTokens, "ft", "ff"); i++) {
+        for (int i = startValue; evaluator.evaluateCondition(conditionTokens); i++) {
             // Execute the loop body (you can customize this part to handle loop body statements)
             executeLoopBody(tokens);  // Replace with your method to process the loop body
 

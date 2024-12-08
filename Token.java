@@ -1,17 +1,19 @@
 public class Token {
-    private String value;
-    private String type;
+    private int tokenID;
+    private String name;
 
-    public Token(String value, String type){
-        this.value = value;
-        this.type = type;
+    // Constructor
+    public Token(int tokenID, String name) {
+        this.tokenID = tokenID;
+        this.name = name;
     }
 
-    public String getValue(){
-        return value;
+    // Getters
+    public int getTokenID() {
+        return tokenID;
     }
 
-    public String getType(){
-        return type;
+    public String getName() {
+        return name;
     }
 }

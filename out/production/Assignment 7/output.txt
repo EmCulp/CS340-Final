@@ -11,3 +11,64 @@ Tokens (main): integer y ;
 Tokens (block): while ( y < 5 ) { y = y + 1 ; }
 Tokens (main): integer i ;
 Tokens (block): for ( i = 0 ; i < 5 ; i ++ ) { print ( i ) ; }
+Token IDs in Binary for Symbol Table:
+Token ID: 600 => Binary: 1001011000
+Token ID: 601 => Binary: 1001011001
+Token ID: 602 => Binary: 1001011010
+Token ID: 603 => Binary: 1001011011
+Token ID: 604 => Binary: 1001011100
+Token ID: 605 => Binary: 1001011101
+Token ID: 606 => Binary: 1001011110
+Token ID: 607 => Binary: 1001011111
+
+
+Token IDs in Binary for Literal Table:
+Token ID: 900 => Binary: 1110000100
+Token ID: 901 => Binary: 1110000101
+Token ID: 902 => Binary: 1110000110
+Token ID: 903 => Binary: 1110000111
+Token ID: 904 => Binary: 1110001000
+Token ID: 905 => Binary: 1110001001
+Token ID: 906 => Binary: 1110001010
+Token ID: 907 => Binary: 1110001011
+Token ID: 908 => Binary: 1110001100
+Token ID: 909 => Binary: 1110001101
+Token ID: 910 => Binary: 1110001110
+Token ID: 911 => Binary: 1110001111
+
+
+Token IDs in Binary for Operator Table:
+Token ID: 211 => Binary: 11010011
+Token ID: 215 => Binary: 11010111
+Token ID: 219 => Binary: 11011011
+Token ID: 201 => Binary: 11001001
+Token ID: 202 => Binary: 11001010
+Token ID: 206 => Binary: 11001110
+Token ID: 204 => Binary: 11001100
+Token ID: 205 => Binary: 11001101
+Token ID: 207 => Binary: 11001111
+Token ID: 203 => Binary: 11001011
+Token ID: 217 => Binary: 11011001
+Token ID: 212 => Binary: 11010100
+Token ID: 214 => Binary: 11010110
+Token ID: 200 => Binary: 11001000
+Token ID: 218 => Binary: 11011010
+Token ID: 208 => Binary: 11010000
+Token ID: 213 => Binary: 11010101
+Token ID: 216 => Binary: 11011000
+
+
+Token IDs in Binary for Keyword Table:
+Token ID: 101 => Binary: 1100101
+Token ID: 102 => Binary: 1100110
+Token ID: 106 => Binary: 1101010
+Token ID: 108 => Binary: 1101100
+Token ID: 104 => Binary: 1101000
+Token ID: 107 => Binary: 1101011
+Token ID: 110 => Binary: 1101110
+Token ID: 100 => Binary: 1100100
+Token ID: 105 => Binary: 1101001
+Token ID: 109 => Binary: 1101101
+Token ID: 103 => Binary: 1100111
+
+

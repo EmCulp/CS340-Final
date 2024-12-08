@@ -19,12 +19,15 @@
  * CREDITS: This code was written with the help of ChatGPT.         *
  *******************************************************************/
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
 public class SymbolTable {
     private final Map<Integer, Entry> table; // Map to store variable names and their details
     private int nextId; // To keep track of the next available ID
+    private Map<String, String> conditionRegisters;
+    private Map<String, Token> tokens;
 
     /**********************************************************
      * CONSTRUCTOR: SymbolTable()                             *
@@ -95,6 +98,8 @@ public class SymbolTable {
     public SymbolTable() {
         this.table = new HashMap<>();
         this.nextId = 600; // Start IDs from 600
+        conditionRegisters = new HashMap<>();
+        tokens = new HashMap<>();
     }
 
     public void addEntry(String name, String type, Object value, String scope, String register){
@@ -149,6 +154,14 @@ public class SymbolTable {
         return null; // Return null if the variable is not found
     }
 
+    public void putConditionRegister(String register, String description) {
+        conditionRegisters.put(register, description);  // Store the register with a description
+    }
+
+    // Method to retrieve a register description
+    public String getConditionRegister(String register) {
+        return conditionRegisters.get(register);
+    }
 
 
     /**********************************************************
@@ -282,6 +295,18 @@ public class SymbolTable {
         }else{
             System.out.println("Error: Variable not found: " +variableName);
         }
+    }
+
+    public Map<Integer, Entry> getAllEntries(){
+        return table;
+    }
+
+    public void addToken(String key, Token token){
+        tokens.put(key, token);
+    }
+
+    public Collection<Token> getTokens(){
+        return tokens.values();
     }
 
     /**********************************************************

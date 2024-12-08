@@ -1,13 +1,16 @@
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
 public class KeywordTable {
 
     private final Map<String, Integer> keywordMap;
+    private Map<String, Token> tokens;
 
     public KeywordTable() {
         keywordMap = new HashMap<>();
         initializeTable();
+        tokens = new HashMap<>();
     }
 
     private void initializeTable() {
@@ -32,11 +35,23 @@ public class KeywordTable {
         keywordMap.put(keyword, tokenID);
     }
 
+    public void addToken(String key, Token token){
+        tokens.put(key, token);
+    }
+
+    public Collection<Token> getTokens(){
+        return tokens.values();
+    }
+
     public boolean contains(String keyword) {
         return keywordMap.containsKey(keyword);
     }
 
     public Integer get(String keyword){
         return keywordMap.get(keyword);
+    }
+
+    public Map<String, Integer> getKeywordMap(){
+        return keywordMap;
     }
 }

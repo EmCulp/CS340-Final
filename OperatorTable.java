@@ -1,13 +1,16 @@
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
 public class OperatorTable {
 
     private final Map<String, Integer> operatorMap;
+    private Map<String, Token> tokens;
 
     public OperatorTable() {
         operatorMap = new HashMap<>();
         initializeTable();
+        tokens = new HashMap<>();
     }
 
     private void initializeTable() {
@@ -28,6 +31,7 @@ public class OperatorTable {
         operatorMap.put(">=", 216);
         operatorMap.put("{", 217);
         operatorMap.put("}", 218);
+        operatorMap.put("\"", 219);
     }
 
     public Integer getTokenID(String operator) {
@@ -38,11 +42,23 @@ public class OperatorTable {
         operatorMap.put(operator, tokenID);
     }
 
+    public void addToken(String key, Token token){
+        tokens.put(key, token);
+    }
+
+    public Collection<Token> getTokens(){
+        return tokens.values();
+    }
+
     public boolean contains(String operator) {
         return operatorMap.containsKey(operator);
     }
 
     public Integer get(String keyword){
         return operatorMap.get(keyword);
+    }
+
+    public Map<String, Integer> getOperatorMap(){
+        return operatorMap;
     }
 }

@@ -127,53 +127,11 @@ public class Evaluator {
             throw new IllegalArgumentException("Unsupported data type for operand b. Only Integer and Double are supported.");
         }
 
+        // Create a string expression for the operation (e.g., "a + b")
+        String expression = a.toString() + " " + op + " " + b.toString();
+
         // Perform the operation and generate MIPS instructions
-        switch (op) {
-            case '+':
-                if (a instanceof Integer && b instanceof Integer) {
-                    if (isImmediate(b)) {
-                        mipsGenerator.addMipsInstruction("addi " + regResult + ", " + reg1 + ", " + y); // Integer immediate add
-                    } else {
-                        mipsGenerator.addMipsInstruction("add " + regResult + ", " + reg1 + ", " + reg2); // Integer add
-                    }
-                } else {
-                    mipsGenerator.addMipsInstruction("add.s " + regResult + ", " + reg1 + ", " + reg2); // Floating point add
-                }
-                break;
-            case '-':
-                if (a instanceof Integer && b instanceof Integer) {
-                    if (isImmediate(b)) {
-                        mipsGenerator.addMipsInstruction("subi " + regResult + ", " + reg1 + ", " + y); // Integer immediate sub
-                    } else {
-                        mipsGenerator.addMipsInstruction("sub " + regResult + ", " + reg1 + ", " + reg2); // Integer sub
-                    }
-                } else {
-                    mipsGenerator.addMipsInstruction("sub.s " + regResult + ", " + reg1 + ", " + reg2); // Floating point sub
-                }
-                break;
-            case '*':
-                if (a instanceof Integer && b instanceof Integer) {
-                    mipsGenerator.addMipsInstruction("mul " + regResult + ", " + reg1 + ", " + reg2); // Integer mul
-                } else {
-                    mipsGenerator.addMipsInstruction("mul.s " + regResult + ", " + reg1 + ", " + reg2); // Floating point mul
-                }
-                break;
-            case '/':
-                if (b instanceof Integer) {
-                    if (isImmediate(b)) {
-                        mipsGenerator.addMipsInstruction("divi " + reg1 + ", " + reg2 + ", " + y);  // Integer immediate division
-                    } else {
-                        mipsGenerator.addMipsInstruction("div " + reg1 + ", " + reg2);  // Integer division
-                        mipsGenerator.addMipsInstruction("mflo " + regResult);          // Move result to regResult
-                    }
-                } else {
-                    mipsGenerator.addMipsInstruction("div.s " + reg1 + ", " + reg2); // Floating point division
-                    mipsGenerator.addMipsInstruction("mov.s " + regResult + ", $f0"); // Move result to regResult
-                }
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported operator: " + op);
-        }
+        String resultRegister = mipsGenerator.evaluateExpression(expression);
 
         // Perform the operation (for result in Integer or Double)
         double result;
@@ -265,7 +223,7 @@ public class Evaluator {
      * EXCEPTIONS: None                                                      *
      **********************************************************/
 
-    public boolean evaluateCondition(String[] conditionTokens, String labelTrue, String labelFalse) throws Exception {
+    public boolean evaluateCondition(String[] conditionTokens) throws Exception {
         if (conditionTokens.length < 3) {
             throw new Exception("Invalid condition. Condition requires a left operand, operator, and right operand.");
         }
@@ -294,18 +252,6 @@ public class Evaluator {
                 !(rightValue instanceof Integer || rightValue instanceof Double || rightValue instanceof Boolean)) {
             throw new IllegalArgumentException("Invalid operand types for conditional comparison");
         }
-
-        // Generate MIPS code with unique labels for the current condition
-//        if (generateMips) {
-//            if (mipsGenerator != null) {
-//                String conditionMIPS = mipsGenerator.generateConditional(operator, leftValue, rightValue, labelTrue, labelFalse);
-//                System.out.println("Generated MIPS Code: " + conditionMIPS);
-//            } else {
-//                System.out.println("MIPSGenerator is not initialized.");
-//            }
-//        } else {
-//            System.out.println("MIPS code generation is disabled.");
-//        }
 
         // Perform the comparison based on operand types
         if (leftValue instanceof Boolean && rightValue instanceof Boolean) {
