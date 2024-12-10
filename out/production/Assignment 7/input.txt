@@ -1,0 +1,30 @@
+integer x = 5;
+double pi = 3.14;
+string name = "Jacob";
+boolean isGreen = true;
+integer sum;
+sum = 1+2;
+
+if(x<10){
+  x=x+5;
+}else{
+  x=x+1;
+}
+
+integer a = 2;
+
+if(a >= 5){
+  print(a);
+}else{
+  a=a*75;
+}
+
+integer y;
+while(y < 5){
+  y=y+1;
+}
+
+integer i;
+for(i=0; i<5; i++){
+  print(i);
+}

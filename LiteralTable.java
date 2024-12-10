@@ -21,6 +21,7 @@
  * CREDITS: This code was written with the help of ChatGPT.         *
  *******************************************************************/
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -29,14 +30,22 @@ public class LiteralTable{
 
     private int nextLiteralID = 900;
 
+    private Map<String, Token> tokens;
+
+    public LiteralTable(){
+        tokens = new HashMap<>();
+    }
+
     public int addLiteral(Object value){
         if(!literalTable.containsValue(value)){
             int literalID = nextLiteralID++;
             literalTable.put(literalID, value);
+            System.out.println("Added literal with ID: " +literalID);
             return literalID;
         }else{
             for(Map.Entry<Integer, Object> entry : literalTable.entrySet()){
                 if(entry.getValue().equals(value)){
+                    System.out.println("Literal already exists, returning ID: " +entry.getKey());
                     return entry.getKey();
                 }
             }
@@ -57,6 +66,31 @@ public class LiteralTable{
     public boolean containsValue(Object value){
         return literalTable.containsValue(value);
     }
+
+    public Object getLiteralValue(String operand) {
+        // Assuming the operand is a literal represented as a string, e.g., "10"
+        try {
+            // Check if the operand is a valid integer
+            int value = Integer.parseInt(operand);
+            return value; // Return the parsed integer value
+        } catch (NumberFormatException e1) {
+            try {
+                // Check if the operand is a valid double
+                double value = Double.parseDouble(operand);
+                return value; // Return the parsed double value
+            } catch (NumberFormatException e2) {
+                // Handle other literal types or return null
+                // If it's not a number, it could be a variable or some other kind of literal
+                return null;
+            }
+        }
+    }
+
+    public Map<Integer, Object> getLiteralTable(){
+        return literalTable;
+    }
+
+
     /**********************************************************
      * METHOD: printTable()                                   *
      * DESCRIPTION:                                            *
@@ -66,6 +100,7 @@ public class LiteralTable{
      **********************************************************/
 
     public void printTable() {
+        System.out.println();
         System.out.println("Literal Table:");
         for (Map.Entry<Integer, Object> entry : literalTable.entrySet()) {
             System.out.println("ID: " + entry.getKey() + ", Value: " + entry.getValue());
