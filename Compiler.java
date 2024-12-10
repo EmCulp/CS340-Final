@@ -1,22 +1,19 @@
 /*******************************************************************
- * Interpreter Class                                               *
+ * Compiler Class                                               *
  *                                                                 *
  * PROGRAMMER: Emily Culp                                          *
  * COURSE: CS340 - Programming Language Design                     *
- * DATE: 11/12/2024                                                *
- * REQUIREMENT: Implements an interpreter for basic language       *
- *              constructs such as variable declarations,         *
- *              assignments, input, print, if-else, and while.     *
+ * DATE: 12/10/2024                                                *
+ * REQUIREMENT: Final - Compiler    *
  *                                                                 *
  * DESCRIPTION:                                                    *
- * The Interpreter class is responsible for interpreting and       *
- * executing commands based on a simple programming language. It   *
- * handles parsing, tokenization, execution of statements, and     *
- * interacting with symbol and literal tables. The interpreter    *
- * supports basic constructs like variable declaration, assignment,*
- * input, print, conditional statements (if-else), and loops. It  *
- * ensures that valid commands are executed and provides error    *
- * messages for invalid syntax.                                   *
+ * The Compiler class is responsible for interpreting and *
+ * executing commands based on a simple programming language. It handles *
+ *  parsing, tokenization, execution of statements, and interacting with *
+ *  symbol and literal tables. The interpreter supports basic constructs *
+ *  like variable declaration, assignment, input, print, conditional *
+ *  statements (if-else), and loops. It ensures that valid commands are *
+ *  executed and provides error messages for invalid syntax.                                   *
  *                                                                 *
  * COPYRIGHT: This code is copyright (C) 2024 Emily Culp and Dean  *
  * Zeller.                                                         *
@@ -38,7 +35,6 @@ public class Compiler {
     private static String outputFile = "C:\\Users\\emily\\OneDrive\\Documents\\Year3\\CS340\\Final - Compiler\\output.txt";
     private static int controlStructure = 0;
     private static MIPSGenerator mipsGenerator;
-    private static boolean generateMips = true;
     private static TokenIDConverter converter;
 
     static{
@@ -308,6 +304,18 @@ public class Compiler {
         System.out.println("Added literal: 0 with ID " + literalID + " to the Literal Table.");
     }
 
+    /**********************************************************
+     * METHOD: handleDouble(String[] tokens) *
+     * DESCRIPTION: Handles the declaration and assignment of double variables. *
+     * It checks if a double variable is declared or assigned with a value. *
+     * If the variable is not already declared, it adds the variable to the *
+     * symbol table and the literal table (for the default value). It also *
+     * generates MIPS code for the variable, and handles local and global *
+     * variables differently. If the declaration or assignment is invalid, *
+     * it provides an error message. *
+     * PARAMETERS: *
+     *   - String[] tokens: The tokens representing the command to declare or assign a double variable. *
+     **********************************************************/
     private static void handleDouble(String[] tokens) {
         if (tokens.length == 3 && tokens[0].equals("double")) {
             String variableName = tokens[1].replace(";", "");  // Remove semicolon if present
@@ -375,6 +383,13 @@ public class Compiler {
         }
     }
 
+    /**********************************************************
+     * METHOD: addDoubleLiteralIfNotExist(double value) *
+     * DESCRIPTION: Checks if the double literal is already in the literal table. *
+     * If the value does not exist, it adds the double literal to the table. *
+     * PARAMETERS: *
+     *   - double value: The double literal value to be added to the literal table. *
+     **********************************************************/
     private static void addDoubleLiteralIfNotExist(double value) {
         // Check if the double literal is already in the table
         if (!literalTable.containsValue(value)) {
@@ -384,6 +399,17 @@ public class Compiler {
         }
     }
 
+    /**********************************************************
+     * METHOD: handleBoolean(String[] tokens) *
+     * DESCRIPTION: Handles the declaration and assignment of boolean variables. *
+     * It checks if a boolean variable is declared or assigned with a value. *
+     * If the variable is not already declared, it adds the variable to the *
+     * symbol table and the literal table (for the default or assigned value). *
+     * It generates MIPS code for the boolean variable. If the declaration or *
+     * assignment is invalid, it provides an error message. *
+     * PARAMETERS: *
+     *   - String[] tokens: The tokens representing the command to declare or assign a boolean variable. *
+     **********************************************************/
     private static void handleBoolean(String[] tokens) {
         if (tokens.length == 3 && tokens[0].equals("boolean")) {
             String variableName = tokens[1].replace(";", "");  // Remove semicolon if present
@@ -417,6 +443,13 @@ public class Compiler {
         }
     }
 
+    /**********************************************************
+     * METHOD: addBooleanLiteralIfNotExist(String value) *
+     * DESCRIPTION: Checks if the boolean literal is already in the literal table. *
+     * If the value does not exist, it adds the boolean literal to the table. *
+     * PARAMETERS: *
+     *   - String value: The boolean literal value ("true" or "false") to be added to the literal table. *
+     **********************************************************/
     private static void addBooleanLiteralIfNotExist(String value){
         if(!literalTable.containsValue(value)){
             literalTable.addLiteral(value);
@@ -424,6 +457,18 @@ public class Compiler {
         }
     }
 
+    /**********************************************************
+     * METHOD: handleString(String[] tokens) *
+     * DESCRIPTION: Handles the declaration and assignment of string variables. *
+     * It checks if a string variable is declared or assigned with a value. *
+     * If the variable is declared, it adds the variable to the symbol table. *
+     * If the variable is assigned, it ensures the value is a valid string (surrounded by double quotes) *
+     * and adds it to the symbol table and literal table. The method also generates *
+     * MIPS code for the string variable. If the declaration or assignment is invalid, *
+     * it provides an error message. *
+     * PARAMETERS: *
+     *   - String[] tokens: The tokens representing the command to declare or assign a string variable. *
+     **********************************************************/
     private static void handleString(String[] tokens) {
         // Check if it's a declaration (e.g., string name;)
         if (tokens.length == 2 && tokens[1].endsWith(";")) {
@@ -780,15 +825,15 @@ public class Compiler {
 
 
     /**********************************************************
-     * METHOD: handleWhileLoop(String[] tokens)
-     * DESCRIPTION: Handles while loop commands like "while (condition) { ... }".
-     *              It evaluates the condition and, if true, executes the block of
-     *              code inside the loop. The loop continues until the condition
-     *              evaluates to false.
-     * PARAMETERS: String[] tokens - An array of tokens representing the while loop.
-     * RETURN VALUE: None
-     * EXCEPTIONS: Throws an Exception if the while loop syntax is invalid or
-     *             if there is an error evaluating the condition.
+     * METHOD: handleWhileLoop(String condition, List<String> blockTokens) *
+     * DESCRIPTION: Handles the execution of a while loop, including evaluating the condition and executing the body.
+     *              This method generates the MIPS code for the loop, evaluates the condition, and executes the loop body
+     *              repeatedly as long as the condition remains true.
+     * PARAMETERS:
+     *     - String condition: The condition of the while loop to be evaluated.
+     *     - List<String> blockTokens: A list of tokens representing the loop body to be executed when the condition is true.
+     * RETURN VALUE: None.
+     * EXCEPTION: Throws IllegalArgumentException if blockTokens is empty, and throws Exception for other errors during execution.
      **********************************************************/
 
     public static void handleWhileLoop(String condition, List<String> blockTokens) throws Exception {
@@ -931,6 +976,16 @@ public class Compiler {
         System.out.println("MIPS Code Generation Complete");
     }
 
+    /**********************************************************
+     * METHOD: extractBlock(String[] tokens, String blockType) *
+     * DESCRIPTION: Extracts a block of code from an array of tokens, starting and ending with braces `{}`.
+     *              This method is used to process blocks of code such as the body of an if statement or loop.
+     * PARAMETERS:
+     *     - String[] tokens: The array of tokens from the code.
+     *     - String blockType: The type of block (e.g., "if", "while").
+     * RETURN VALUE: A new array of Strings containing the tokens inside the braces of the block.
+     * EXCEPTION: Throws Exception if the block structure is invalid (missing braces).
+     **********************************************************/
     private static String[] extractBlock(String[] tokens, String blockType) throws Exception {
         int startBrace = findNextToken(tokens, "{", 0);
         int endBrace = findMatchingBrace(tokens, startBrace);
@@ -941,6 +996,16 @@ public class Compiler {
 
         return Arrays.copyOfRange(tokens, startBrace + 1, endBrace);
     }
+
+    /**********************************************************
+     * METHOD: findMatchingBrace(String[] tokens, int start) *
+     * DESCRIPTION: Finds the index of the closing brace that matches the opening brace at the given start index.
+     *              This method ensures that braces are correctly balanced and helps identify the boundaries of a block of code.
+     * PARAMETERS:
+     *     - String[] tokens: The array of tokens from the code.
+     *     - int start: The index of the opening brace to find the matching closing brace for.
+     * RETURN VALUE: The index of the matching closing brace, or -1 if no matching brace is found.
+     **********************************************************/
 
     private static int findMatchingBrace(String[] tokens, int start) {
         int braceCount = 1;
@@ -964,7 +1029,14 @@ public class Compiler {
         return -1;
     }
 
-
+    /**********************************************************
+     * METHOD: findIndex(String[] tokens, String token) *
+     * DESCRIPTION: Finds the index of a specific token in an array of tokens.
+     * PARAMETERS:
+     *     - String[] tokens: The array of tokens from the code.
+     *     - String token: The token to find in the array.
+     * RETURN VALUE: The index of the token, or -1 if the token is not found.
+     **********************************************************/
     private static int findIndex(String[] tokens, String token) {
         for (int i = 0; i < tokens.length; i++) {
             if (tokens[i].trim().equals(token)) {
@@ -974,6 +1046,15 @@ public class Compiler {
         return -1; // Token not found
     }
 
+    /**********************************************************
+     * METHOD: findNextToken(String[] tokens, String target, int start) *
+     * DESCRIPTION: Finds the index of the next occurrence of a specific token in an array of tokens, starting from a given index.
+     * PARAMETERS:
+     *     - String[] tokens: The array of tokens from the code.
+     *     - String target: The token to find.
+     *     - int start: The index from which to start searching for the token.
+     * RETURN VALUE: The index of the token, or -1 if the token is not found.
+     **********************************************************/
     private static int findNextToken(String[] tokens, String target, int start) {
         for (int i = start; i < tokens.length; i++) {
             if (tokens[i].equals(target)) {
@@ -983,6 +1064,16 @@ public class Compiler {
         return -1; // Token not found
     }
 
+    /**********************************************************
+     * METHOD: processBlock(String[] tokens, int startBlock, int endBlock) *
+     * DESCRIPTION: Processes a block of code between two braces by extracting and executing the commands one by one.
+     * PARAMETERS:
+     *     - String[] tokens: The array of tokens representing the entire code.
+     *     - int startBlock: The index of the first token of the block.
+     *     - int endBlock: The index of the last token of the block.
+     * RETURN VALUE: None.
+     * EXCEPTION: Throws Exception if an error occurs while processing the block.
+     **********************************************************/
     // Method to process a block of tokens (either if or else)
     private static void processBlock(String[] tokens, int startBlock, int endBlock) throws Exception {
         System.out.println("Processing block from " +startBlock+ " to " +endBlock);
@@ -1053,6 +1144,15 @@ public class Compiler {
         return blockTokens;
     }
 
+    /**********************************************************
+     * METHOD: handleForLoop(String[] loopTokens) *
+     * DESCRIPTION: Handles the execution of a "for" loop, including parsing the initialization, condition, increment, *
+     *              and body of the loop. It generates MIPS code for the loop and executes it as long as the condition is true. *
+     * PARAMETERS:
+     *     - String[] loopTokens: The tokens representing the entire for loop, including initialization, condition, increment, and body.
+     * RETURN VALUE: None.
+     * EXCEPTION: Throws IllegalArgumentException if the for loop is malformed, or an Exception for other errors during execution.
+     **********************************************************/
     public static void handleForLoop(String[] loopTokens) throws Exception {
         // Step 1: Locate the parentheses
         int openParenIndex = Arrays.asList(loopTokens).indexOf("(");
@@ -1127,6 +1227,15 @@ public class Compiler {
         }
     }
 
+    /**********************************************************
+     * METHOD: handleForIntegerLoop(String[] tokens) *
+     * DESCRIPTION: Handles a for loop that involves integer variable initialization. The method parses the loop's initialization, *
+     *              condition, increment, and body. It also manages variable declaration or use from the symbol table. *
+     * PARAMETERS:
+     *     - String[] tokens: The tokens representing the entire for loop, including initialization, condition, increment, and body.
+     * RETURN VALUE: None.
+     * EXCEPTION: Throws IllegalArgumentException if the for loop is malformed or the variable is not declared.
+     **********************************************************/
     public static void handleForIntegerLoop(String[] tokens) throws Exception {
         // Step 1: Ensure the tokens array has enough elements to parse a basic for loop
         if (tokens.length < 13) {
@@ -1179,6 +1288,16 @@ public class Compiler {
         }
     }
 
+    /**********************************************************
+     * METHOD: executeLoopBody(String[] loopTokens) *
+     * DESCRIPTION: Executes the body of a loop by processing the statements inside the loop. The loop body is expected to be in *
+     *              the form of tokens, which are processed and executed one by one. Each statement is executed until the loop *
+     *              body is fully processed. *
+     * PARAMETERS:
+     *     - String[] loopTokens: The tokens representing the body of the loop.
+     * RETURN VALUE: None.
+     * EXCEPTION: Throws Exception if an error occurs while executing the loop body.
+     **********************************************************/
     private static void executeLoopBody(String[] loopTokens) throws Exception {
         // The loopTokens array contains the body of the loop (e.g., "{ print(i); }")
         StringBuilder statementBuilder = new StringBuilder();
@@ -1219,6 +1338,13 @@ public class Compiler {
         }
     }
 
+    /**********************************************************
+     * METHOD: isInsideControlStructure() *
+     * DESCRIPTION: Checks if the current execution is inside a control structure (such as a loop or conditional). This method *
+     *              is used to determine the execution context and handle control structures appropriately. *
+     * PARAMETERS: None.
+     * RETURN VALUE: true if inside a control structure, false otherwise.
+     **********************************************************/
     private static boolean isInsideControlStructure(){
         return controlStructure > 0;
     }

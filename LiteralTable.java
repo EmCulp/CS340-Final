@@ -63,14 +63,6 @@ public class LiteralTable{
         return -1;
     }
 
-    public void addToken(String key, Token token){
-        tokens.put(key, token);
-    }
-
-    public Collection<Token> getTokens(){
-        return tokens.values();
-    }
-
     public boolean containsValue(Object value){
         return literalTable.containsValue(value);
     }

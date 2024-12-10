@@ -3,8 +3,8 @@
  *                                                                 *
  * PROGRAMMER: Emily Culp                                           *
  * COURSE: CS340 - Programming Language Design                      *
- * DATE: 11/12/2024                                                 *
- * REQUIREMENT: Manage variables for the interpreter                *
+ * DATE: 12/10/2024                                                 *
+ * REQUIREMENT: Final - Compiler                                   *
  *                                                                 *
  * DESCRIPTION:                                                     *
  * The SymbolTable class manages variables in the interpreter,      *
@@ -102,18 +102,34 @@ public class SymbolTable {
         tokens = new HashMap<>();
     }
 
+    /**********************************************************
+     * METHOD: addEntry(String name, String type, Object value,  *
+     * String scope, String register)                           *
+     * DESCRIPTION:                                            *
+     * Adds a new entry to the symbol table. Each variable is   *
+     * assigned a unique ID starting from 600.                  *
+     * PARAMETERS:                                             *
+     *  String name - the name of the variable                 *
+     *  String type - the type of the variable (e.g., integer) *
+     *  Object value - the value of the variable               *
+     *  String scope - the scope of the variable (e.g., global)*
+     *  String register - the register assigned to the variable*
+     **********************************************************/
     public void addEntry(String name, String type, Object value, String scope, String register){
         table.put(nextId, new Entry(nextId, name, type, value, scope, register));
         nextId++;
     }
 
-    public Entry getEntry(String variableName){
-        if(!table.containsKey(variableName)){
-            throw new IllegalArgumentException("Variable " +variableName+ " not found in the symbol table.");
-        }
-        return table.get(variableName);
-    }
-
+    /**********************************************************
+     * METHOD: getRegister(String variableName)                 *
+     * DESCRIPTION:                                            *
+     * Retrieves the register associated with a variable name.  *
+     * PARAMETERS:                                             *
+     *  String variableName - the name of the variable         *
+     * RETURN VALUE:                                           *
+     *  String - the register associated with the variable     *
+     *  or null if the variable is not found                   *
+     **********************************************************/
     public String getRegister(String variableName){
         // Iterate through the map and find the entry with the matching variable name
         for(Map.Entry<Integer, Entry> entry : table.entrySet()){
@@ -124,6 +140,14 @@ public class SymbolTable {
         return null; // Return null if the variable is not found
     }
 
+    /**********************************************************
+     * METHOD: addRegisterToVariable(String variableName, String register) *
+     * DESCRIPTION:                                            *
+     * Adds a register to an existing variable.                 *
+     * PARAMETERS:                                             *
+     *  String variableName - the name of the variable         *
+     *  String register - the register to assign to the variable *
+     **********************************************************/
     public void addRegisterToVariable(String variableName, String register) {
         // Iterate through the map to find the entry with the matching variable name
         for (Map.Entry<Integer, Entry> entry : table.entrySet()) {
@@ -139,6 +163,18 @@ public class SymbolTable {
         throw new IllegalArgumentException("Variable '" + variableName + "' not found in the Symbol Table.");
     }
 
+    /**********************************************************
+     * METHOD: addRegisterToVariable(String variableName) *
+     * DESCRIPTION:                                            *
+     * Searches for a variable by its name and returns the     *
+     * associated register. If the variable is not found, a
+     * debug manage is printed, and null is returned.
+     * PARAMETERS:                                             *
+     *  String variableName - the name of the variable         *
+     * RETURN VALUE:                                           *
+     *  String - the register associated with the variable, or
+     *      null if the variable is not found
+     **********************************************************/
     public String getRegisterForVariable(String variableName) {
         System.out.println("Looking up register for variable name: " + variableName);  // Debug print
 
@@ -154,27 +190,15 @@ public class SymbolTable {
         return null; // Return null if the variable is not found
     }
 
-    public void putConditionRegister(String register, String description) {
-        conditionRegisters.put(register, description);  // Store the register with a description
-    }
-
-    // Method to retrieve a register description
-    public String getConditionRegister(String register) {
-        return conditionRegisters.get(register);
-    }
-
 
     /**********************************************************
-     * METHOD: getValue(String name)                           *
+     * METHOD: getValueById(int id)                            *
      * DESCRIPTION:                                            *
-     * Retrieves the value associated with a variable name. If *
-     * the variable is not found, an error message is printed, *
-     * and null is returned.                                   *
+     * Retrieves the value associated with a variable by ID.   *
      * PARAMETERS:                                             *
-     *  String name - the name of the variable                 *
+     *  int id - the ID of the variable                        *
      * RETURN VALUE:                                           *
-     *  Integer - the value of the variable, or null if not    *
-     *  found                                                  *
+     *  Object - the value of the variable, or null if not found *
      **********************************************************/
 
     // Retrieves the value associated with a variable name
@@ -183,6 +207,15 @@ public class SymbolTable {
         return (entry != null) ? entry.value : null;
     }
 
+    /**********************************************************
+     * METHOD: getIdByName(String name)                        *
+     * DESCRIPTION:                                            *
+     * Retrieves the ID associated with a variable by its name.*
+     * PARAMETERS:                                             *
+     *  String name - the name of the variable                 *
+     * RETURN VALUE:                                           *
+     *  Integer - the ID of the variable, or null if not found *
+     **********************************************************/
     public Integer getIdByName(String name){
         for(Map.Entry<Integer, Entry> entry : table.entrySet()){
             if(entry.getValue().getName().equals(name)){
@@ -244,6 +277,16 @@ public class SymbolTable {
         return false;
     }
 
+    /**********************************************************
+     * METHOD: getTypeByName(String variableName)            *
+     * DESCRIPTION:                                            *
+     *  Searches for a variable by its name and returns its type. *
+     *  If the variable is not found, null is returned
+     * PARAMETERS:                                             *
+     *  String variableName - the name of the variable         *
+     * RETURN VALUE:                                            *
+     *  String - the type of the variable, or null if not found
+     **********************************************************/
     public String getTypeByName(String variableName){
         for(Map.Entry<Integer, Entry> entry : table.entrySet()){
             if(entry.getValue().getName().equals(variableName)){
@@ -253,15 +296,16 @@ public class SymbolTable {
         return null;
     }
 
-    public Entry getValue(String variableName) throws Exception {
-        if (table.containsKey(variableName)) {
-            return table.get(variableName); // Return the value of the variable
-        } else {
-            throw new Exception("Variable not found: " + variableName);
-        }
-    }
-
-
+    /**********************************************************
+     * METHOD: get(String name)                                  *
+     * DESCRIPTION:                                            *
+     *  Retrieves the value of a variable by its name. If the  *
+     *  variable is not found, null is returned
+     * PARAMETERS:                                             *
+     *  String name - the name of the variable         *
+     * RETURN VALUE:
+     *  Object - the value of the variable, or null if not found *
+     **********************************************************/
     public Object get(String name) {
         for (Map.Entry<Integer, Entry> entry : table.entrySet()) {
             if (entry.getValue().name.equals(name)) {
@@ -271,56 +315,18 @@ public class SymbolTable {
         return null; // Return null if the variable name is not found
     }
 
-    public void assignRegisterToVariable(String variableName, String register){
-        for(Map.Entry<Integer, Entry> entry : table.entrySet()){
-            if(entry.getValue().getName().equals(variableName)){
-                entry.getValue().scope = register;
-                System.out.println("Assigned register " +register+ " to variable " +variableName);
-                return;
-            }
-        }
-
-        System.out.println("Error: Variable " +variableName+ " not found in the Symbol Table.");
-    }
-
-    public String getOffsetByName(String name){
-        Entry entry = table.get(name);
-        return entry != null ? entry.getRegister() : null;
-    }
-
-    public void updateRegister(String variableName, String register) {
-        // Check if the variable exists in the table
-        Entry entry = getEntry(variableName);  // This will throw an exception if the variable is not found
-        if (entry != null) {
-            entry.setRegister(register);  // Assuming setRegister is properly defined in Entry class
-            System.out.println("Register " + register + " has been assigned to variable " + variableName);
-        } else {
-            throw new IllegalArgumentException("Variable " + variableName + " not found in symbol table.");
-        }
-    }
-
-
+    /**********************************************************
+     * METHOD: getAllEntries()                               *
+     * DESCRIPTION:                                            *
+     * Returns a map containing all entries in the symbol table.*
+     * The map associates variable IDs with their corresponding
+     * entries.
+     * RETURN VALUE:
+     *  Map<Integer, Entry> - a map of all entries in the symbol table*
+     **********************************************************/
     public Map<Integer, Entry> getAllEntries(){
         return table;
     }
-
-    public void addToken(String key, Token token){
-        tokens.put(key, token);
-    }
-
-    public Collection<Token> getTokens(){
-        return tokens.values();
-    }
-
-    public boolean isVariableInDataSection(String variableName) {
-        for (Entry entry : table.values()) {
-            if (entry.getName().equals(variableName) && "data".equalsIgnoreCase(entry.getScope())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
 
     /**********************************************************
      * METHOD: display()                                    *

@@ -3,8 +3,8 @@
  *                                                                  *
  * PROGRAMMER: Emily Culp                                           *
  * COURSE: CS340 - Programming Language Design                      *
- * DATE: 11/12/2024                                                 *
- * REQUIREMENT: Expression Evaluation for Interpreter               *
+ * DATE: 12/10/2024                                                 *
+ * REQUIREMENT: Final - Compiler                                    *
  *                                                                  *
  * DESCRIPTION:                                                     *
  * The Evaluator class provides methods for evaluating mathematical *
@@ -94,10 +94,32 @@ public class Evaluator {
         return values.pop();
     }
 
+    /**********************************************************
+     * METHOD: isOperator(char c)                             *
+     * DESCRIPTION: Checks is a character is a valid operator *
+     *              (+, -, *, /, ^)
+     * PARAMETERS: char c - the character to check           *
+     * RETURN VALUE: boolean - Returns true if the character *
+     *          is an operator, otherwise false
+     **********************************************************/
     private boolean isOperator(char c) {
         return c == '+' || c == '-' || c == '*' || c == '/' || c == '^';
     }
 
+    /**********************************************************
+     * METHOD: applyOperation(char op, Object b, Object a)                  *
+     * DESCRIPTION: Applies the specified operator on two operands,
+     *      converting them to double if necessary. The result is
+     *      returned either as an integer or a double
+     * PARAMETERS: char op - the operator (+, -, *, /)
+     *      Object b - the second operand
+     *      Object a - the first operand*
+     * RETURN VALUE: Object - the result of the operation, either
+     *      an integer or a double*
+     * EXCEPTIONS: Throws an IllegalArgumentException if the operands
+     *      are not integers or doubles
+     *         Throws an ArithmeticException for division by 0*
+     **********************************************************/
     private Object applyOperation(char op, Object b, Object a) {
         double x;
         double y;
@@ -166,30 +188,25 @@ public class Evaluator {
         return result;  // Otherwise, return as Double
     }
 
-    private boolean isImmediate(Object operand) {
-        // Check if the operand is an Integer or a Double
-        if (operand instanceof Integer) {
-            return true; // Integers can be used as immediate values in MIPS instructions
-        } else if (operand instanceof Double) {
-            return true; // Doubles can be used as immediate values in MIPS instructions for floating point operations
-        } else if (operand instanceof String) {
-            // For String, you may want to check if it's a numerical value
-            try {
-                Double.parseDouble((String) operand); // Try to parse the String to see if it's a number
-                return true; // If it's a valid number, it can be treated as an immediate
-            } catch (NumberFormatException e) {
-                return false; // Not a valid number, so it's not an immediate
-            }
-        }
-
-        return false; // Any other type is not considered an immediate
-    }
-
-
+    /**********************************************************
+     * METHOD: precedence(char op)                         *
+     * DESCRIPTION: Returns the precedence of the given operator
+     * PARAMETERS: char op - the operator for which the precedence
+     *      is being checked*
+     * RETURN VALUE: int - the precedence value of the operator,
+     *      with higher values indicating higher precedence*
+     **********************************************************/
     private int precedence(char op) {
         return OPERATOR_PRECEDENCE.getOrDefault(op, 0);
     }
 
+    /**********************************************************
+     * METHOD: isInteger(String token)                        *
+     * DESCRIPTION: Checks if a string token can be parsed as an integer
+     * PARAMETERS: String token - the token to check
+     * RETURN VALUE: boolean - returns true if the token is an integer,
+     *      otherwise false
+     **********************************************************/
     public boolean isInteger(String token) {
         try {
             Integer.parseInt(token);
@@ -199,6 +216,13 @@ public class Evaluator {
         }
     }
 
+    /**********************************************************
+     * METHOD: isDouble(String token)                      *
+     * DESCRIPTION: Checks if a string token can be parsed as a double
+     * PARAMETERS: String token - the token to check
+     * RETURN VALUE: boolean - returns true if the token is a double,
+     *      otherwise false
+     **********************************************************/
     public boolean isDouble(String token) {
         try {
             Double.parseDouble(token);
@@ -269,6 +293,16 @@ public class Evaluator {
         }
     }
 
+    /**
+     * Evaluates a boolean condition between two boolean values based on the provided operator.
+     *
+     * @param left The first boolean value.
+     * @param right The second boolean value.
+     * @param operator The operator used to compare the two boolean values. Supported operators are:
+     *                 "==" for equality and "!=" for inequality.
+     * @return The result of the boolean condition evaluation.
+     * @throws IllegalArgumentException If the operator is not supported.
+     */
     private boolean evaluateBooleanCondition(boolean left, boolean right, String operator) {
         switch (operator) {
             case "==":
@@ -280,6 +314,17 @@ public class Evaluator {
         }
     }
 
+    /**
+     * Evaluates a numeric condition between two numeric values based on the provided operator.
+     * The supported operators are relational and equality operators.
+     *
+     * @param left The first numeric value (either an integer or double).
+     * @param right The second numeric value (either an integer or double).
+     * @param operator The operator used to compare the two numeric values. Supported operators are:
+     *                 ">=", "<=", ">", "<", "==", and "!=".
+     * @return The result of the numeric condition evaluation.
+     * @throws Exception If the operator is not supported.
+     */
     private boolean evaluateNumericCondition(double left, double right, String operator) throws Exception {
         switch (operator) {
             case ">=":
@@ -305,6 +350,13 @@ public class Evaluator {
         }
     }
 
+    /**
+     * Converts the given value to a double.
+     *
+     * @param value The value to convert, which can be an Integer or Double.
+     * @return The converted value as a double.
+     * @throws Exception If the value is neither an Integer nor a Double.
+     */
     private double convertToDouble(Object value) throws Exception {
         if (value instanceof Integer) {
             return ((Integer) value).doubleValue();
@@ -315,6 +367,18 @@ public class Evaluator {
         }
     }
 
+
+    /**********************************************************
+     * METHOD: getValueFromOperand(String operand)                *
+     * DESCRIPTION: Returns the value of the operand, which could be an
+     *      integer, a double, or a variable from the symbol table
+     * PARAMETERS: String operand - the operand to evaluate, which can be
+     *      literal or a variable name
+     * RETURN VALUE: Object - the value of the operand (either an integer,
+     *      double, or variable value)
+     * EXCEPTIONS:
+     *      Throws an Exception if the operand is invalid or cannot be resolved
+     **********************************************************/
     public Object getValueFromOperand(String operand) throws Exception {
         // Check if the operand is a variable in the SymbolTable
         if (symbolTable.containsVariable(operand)) {

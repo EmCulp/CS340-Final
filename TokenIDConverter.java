@@ -1,3 +1,25 @@
+/*******************************************************************
+ * Tokenization Class *
+ * *
+ * PROGRAMMER: Emily Culp*
+ * COURSE: CS340 - Programming Language Design*
+ * DATE: 12/10/2024 *
+ * REQUIREMENT: Tokenization for the interpreter *
+ * *
+ * DESCRIPTION: *
+ * The TokenIDConverter class is used to convert token IDs from various token
+ * tables (SymbolTable, LiteralTable, OperatorTable, KeywordTable) into their
+ * binary string representations. The class allows you to print the token IDS
+ * in binary format to a PrintWriter. It supports multiple tables for different
+ * types of tokens, such as symbols, literals, operators, and keywords. The token
+ * IDs are printed with their corresponding binary values.*
+ * *
+ * COPYRIGHT: This code is copyright (C) 2024 Emily Culp and Dean Zeller. *
+ * *
+ * CREDITS: This code was written with the help of ChatGPT. *
+ * *
+ *******************************************************************/
+
 import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.Map;
@@ -15,10 +37,29 @@ public class TokenIDConverter {
         this.keywordTable = keywordTable;
     }
 
+    /**********************************************************
+     * METHOD: convertToBinary(int tokenID) *
+     * DESCRIPTION: This method converts a given token ID into its binary string representation *
+     * PARAMETERS: int tokenID - the token ID to be converted to binary *
+     * RETURN VALUE: String - returns a String representing the binary value of the tokenID*
+     **********************************************************/
     public static String convertToBinary(int tokenID){
         return Integer.toBinaryString(tokenID);
     }
 
+    /**********************************************************
+     * METHOD: printTokenIDsInBinary(Object table, PrintWriter writer) *
+     * DESCRIPTION: This method takes a token table (either SymbolTable, LiteralTable,
+     * OperatorTable, or KeywordTable) and prints the token IDs of that table in
+     * binary format to a given PrintWriter*
+     * PARAMETERS: Object table - The token table (instance of SymbolTable, LiteralTable,
+     *          OperatorTable, or KeywordTable) whose token IDs are to be printed in
+     *          binary format.
+     *          PrintWriter writer - The PrintWriter to which the binary representations
+     *          of the token IDs are written*
+     * RETURN VALUE: This method does not return a value. It writes the binary
+     *          representations directly to the PrintWriter*
+     **********************************************************/
     public void printTokenIDsInBinary(Object table, PrintWriter writer) {
         if (table instanceof SymbolTable) {
             SymbolTable symbolTable = (SymbolTable) table;
@@ -48,64 +89,19 @@ public class TokenIDConverter {
         writer.println();  // Add a blank line for readability
     }
 
+    /**********************************************************
+     * METHOD: writeTokenIDInBinary(int tokenID, PrintWriter writer)*
+     * DESCRIPTION: This method converts a given token ID to binary and writes it to
+     *              the provided PrintWriter*
+     * PARAMETERS: int tokenID - the token ID to be converted to binary
+     *             PrinterWriter writer - the PrintWriter to which the binary
+     *             representation is written*
+     * RETURN VALUE: This method does not return a value. It writes the binary representation
+     *              directly to the PrintWriter*
+     **********************************************************/
     private void writeTokenIDInBinary(int tokenID, PrintWriter writer) {
         String binaryRepresentation = Integer.toBinaryString(tokenID);  // Convert token ID to binary
         writer.println("Token ID: " + tokenID + " => Binary: " + binaryRepresentation);
     }
 
-
-
-    private void printSymbolTableInBinary(SymbolTable symbolTable) {
-        System.out.println("Token IDs in Binary for Symbol Table:");
-        Map<Integer, SymbolTable.Entry> entries = symbolTable.getAllEntries();  // Get all entries from SymbolTable
-        for (Map.Entry<Integer, SymbolTable.Entry> entry : entries.entrySet()) {
-            Integer tokenID = entry.getKey();  // Token ID is the key in the map
-            SymbolTable.Entry entryValue = entry.getValue();  // Get the Entry object
-
-            // Assuming Entry has a method to get the token name, you might need to adjust this
-            String tokenName = entryValue.getName();
-
-            String binaryRepresentation = convertToBinary(tokenID);
-            System.out.println("Token Name: " + tokenName + " => Token ID: " + tokenID + " => Binary: " + binaryRepresentation);
-        }
-        System.out.println();
-    }
-
-    // Print Literal Table in Binary
-    private void printLiteralTableInBinary(LiteralTable literalTable) {
-        System.out.println("Token IDs in Binary for Literal Table:");
-        Map<Integer, Object> literals = literalTable.getLiteralTable();  // Assuming this method exists
-        for (Map.Entry<Integer, Object> entry : literals.entrySet()) {
-            Integer tokenID = entry.getKey();
-            Object value = entry.getValue();  // Value associated with the literal (can be an Object)
-
-            String binaryRepresentation = convertToBinary(tokenID);
-            System.out.println("Literal Value: " + value + " => Token ID: " + tokenID + " => Binary: " + binaryRepresentation);
-        }
-        System.out.println();
-    }
-
-    private void printOperatorTableInBinary(OperatorTable operatorTable) {
-        System.out.println("Token IDs in Binary for Operator Table:");
-        Map<String, Integer> operators = operatorTable.getOperatorMap();  // Assuming this method exists
-        for (Map.Entry<String, Integer> entry : operators.entrySet()) {
-            String name = entry.getKey();
-            Integer tokenID = entry.getValue();
-            String binaryRepresentation = convertToBinary(tokenID);
-            System.out.println("Operator Name: " + name + " => Token ID: " + tokenID + " => Binary: " + binaryRepresentation);
-        }
-        System.out.println();
-    }
-
-    private void printKeywordTableInBinary(KeywordTable keywordTable) {
-        System.out.println("Token IDs in Binary for Keyword Table:");
-        Map<String, Integer> keywords = keywordTable.getKeywordMap();  // Assuming this method exists
-        for (Map.Entry<String, Integer> entry : keywords.entrySet()) {
-            String name = entry.getKey();
-            Integer tokenID = entry.getValue();
-            String binaryRepresentation = convertToBinary(tokenID);
-            System.out.println("Keyword Name: " + name + " => Token ID: " + tokenID + " => Binary: " + binaryRepresentation);
-        }
-        System.out.println();
-    }
 }

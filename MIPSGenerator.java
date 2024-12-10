@@ -1,3 +1,27 @@
+/*******************************************************************
+ * MIPS Code Generator for CS340 *
+ * *
+ * PROGRAMMER: Emily Culp *
+ * COURSE: CS340 *
+ * DATE: 12/10/2024 *
+ * REQUIREMENT: Final - Compiler *
+ * *
+ * DESCRIPTION: *
+ * The MIPSGenerator class is responsible for generating MIPS assembly code. *
+ * It handles register allocation, the creation of MIPS instructions, *
+ * and the management of a data section for variables and their initialization. *
+ * The class includes methods for allocating temporary and saved registers, *
+ * freeing registers, and adding variables to the data section with proper initialization. *
+ * It also maintains a symbol table for use in MIPS code generation. *
+ * *
+ * COPYRIGHT: This code is copyright (C) 2024 Emily Culp*
+ * and Dean Zeller. *
+ * *
+ * CREDITS: This code was written with the help of ChatGPT. *
+ * *
+ *******************************************************************/
+
+
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -36,10 +60,18 @@ public class MIPSGenerator {
         this.symbolTable = symbolTable;
     }
 
-    private String generateUniqueLabel(String base) {
-        return base + "_" + (labelCounter++);
-    }
-
+    /**********************************************************
+     * METHOD: addToDataSection(String variableName, String initValue, String dataType) *
+     * DESCRIPTION: Adds a variable to the data section with its initialization value. *
+     * If the variable is already present, it will not be added again. The method handles *
+     * various data types (int, string, boolean, double) and provides default values for *
+     * uninitialized variables. *
+     * PARAMETERS: *
+     * String variableName - the name of the variable to add to the data section. *
+     * String initValue - the initialization value for the variable. *
+     * String dataType - the data type of the variable (int, string, boolean, double). *
+     * RETURN VALUE: void *
+     **********************************************************/
     public void addToDataSection(String variableName, String initValue, String dataType) {
         // Check if the variable is already in the data section
         if (!dataSection.containsKey(variableName)) {
@@ -95,82 +127,24 @@ public class MIPSGenerator {
         }
     }
 
+    /**********************************************************
+     * METHOD: isVariableInDataSection(String variableName) *
+     * DESCRIPTION: Checks if a variable is already present in the data section. *
+     * PARAMETERS: *
+     * String variableName - the name of the variable to check. *
+     * RETURN VALUE: boolean - true if the variable is in the data section, false otherwise. *
+     **********************************************************/
     public boolean isVariableInDataSection(String variableName) {
         return dataSection.containsKey(variableName);
     }
 
-
-    //want to push one thing to the stack
-    public void pushToStack(String register){
-        addMipsInstruction("addi $sp, $sp, -4");
-        addMipsInstruction("sw " +register+ ", 0($sp)");
-    }
-
-    public void popFromStack(String register){
-        addMipsInstruction("lw " +register+ ", " +stackOffset+ "($sp)");
-        addMipsInstruction("addi $sp, $sp, 4");
-        stackOffset += 4;
-    }
-
-    // Allocate a variable on the stack
-    public void allocateVariable(String variableName) {
-        stackPointer -= 4;  // Move stack pointer for variable allocation
-        stackMap.put(variableName, stackPointer); // Store the offset for the variable
-        addMipsInstruction("# Allocating variable: " + variableName + " at offset " + stackPointer);
-    }
-
-
-    // Method to deallocate a variable and free the associated memory
-    public void deallocateVariable(String variableName) {
-        if (stackMap.containsKey(variableName)) {
-            // Get the stack offset for the variable
-            int offset = stackMap.get(variableName);
-
-            // Generate MIPS instruction to free the variable's memory
-            addMipsInstruction("# Deallocating variable: " + variableName + " at offset " + offset);
-
-            // Remove the variable from the stack map
-            stackMap.remove(variableName);
-        } else {
-            System.out.println("Variable " + variableName + " not found in the stack.");
-        }
-    }
-
-
-    public void storeVariable(String variableName, String register){
-        if(!stackMap.containsKey(variableName)){
-            allocateVariable(variableName);
-        }
-        int offset = stackMap.get(variableName);
-        addMipsInstruction("sw " +register+ ", " +offset+ "($sp)");
-    }
-
-    public void loadVariable(String variableName, String register){
-        if(!stackMap.containsKey(variableName)){
-            throw new IllegalArgumentException("Variable " +variableName+ " is not allocated on the stack");
-        }
-        int offset = stackMap.get(variableName);
-        addMipsInstruction("lw " +register+ ", " +offset+"($sp)");
-    }
-
-    // Method to push only used saved registers onto the stack
-    public void saveUsedSavedRegisters() {
-        for (String reg : usedSavedRegisters) {
-            addMipsInstruction("addi $sp, $sp, -4");  // Adjust the stack pointer
-            addMipsInstruction("sw " + reg + ", 0($sp)");  // Store the register value to the stack
-            addMipsInstruction("# Saved register " + reg + " to stack");
-        }
-    }
-
-    // Method to pop only used saved registers from the stack
-    public void restoreUsedSavedRegisters() {
-        for (String reg : usedSavedRegisters) {
-            addMipsInstruction("lw " + reg + ", 0($sp)");  // Load the register value from the stack
-            addMipsInstruction("addi $sp, $sp, 4");  // Restore the stack pointer
-            addMipsInstruction("# Restored register " + reg + " from stack");
-        }
-    }
-
+    /**********************************************************
+     * METHOD: allocateTempRegister() *
+     * DESCRIPTION: Allocates a temporary register from the pool. If no registers are available, *
+     * it resets the register pool and attempts to allocate a register again. *
+     * PARAMETERS: none *
+     * RETURN VALUE: String - the name of the allocated temporary register. *
+     **********************************************************/
     // Method to allocate a temporary register
     public String allocateTempRegister() {
         if (freeRegisters.isEmpty()) {
@@ -189,6 +163,13 @@ public class MIPSGenerator {
         return reg;
     }
 
+    /**********************************************************
+     * METHOD: allocateSavedRegister() *
+     * DESCRIPTION: Allocates a saved register from the pool. If no registers are available, *
+     * it resets the register pool and attempts to allocate a register again. *
+     * PARAMETERS: none *
+     * RETURN VALUE: String - the name of the allocated saved register. *
+     **********************************************************/
     // Method to allocate a saved register
     public String allocateSavedRegister() {
         for (String reg : savedRegisters) {
@@ -215,6 +196,14 @@ public class MIPSGenerator {
         throw new RuntimeException("No available saved registers even after resetting.");
     }
 
+    /**********************************************************
+     * METHOD: freeRegister() *
+     * DESCRIPTION: Frees a register that was previously allocated. If the register is in use, *
+     * it is removed from the used registers set and added back to the free registers pool. *
+     * PARAMETERS: *
+     * String reg - the name of the register to free. *
+     * RETURN VALUE: void *
+     **********************************************************/
     // Method to free a register
     public void freeRegister(String reg) {
         if (usedRegisters.contains(reg)) {
@@ -234,6 +223,15 @@ public class MIPSGenerator {
         }
     }
 
+    /**********************************************************
+     * METHOD: resetRegisterPools() *
+     * DESCRIPTION: This method clears the usedRegisters and usedSavedRegisters
+     *      sets and reinitializes  the freeRegisters deque with the
+     *      original temporary registers. It effectively resets the register
+     *      allocation pools to their initial state*
+     * PARAMETERS: None*
+     * RETURN VALUE: void *
+     **********************************************************/
     public void resetRegisterPools() {
         // Reset the register pools to their initial states
         tempRegisters = new ArrayDeque<>(List.of("$t0", "$t1", "$t2", "$t3", "$t4", "$t5", "$t6", "$t7", "$t8", "$t9"));
@@ -246,7 +244,25 @@ public class MIPSGenerator {
 //        printRegisterState();
     }
 
-
+    /**********************************************************
+     * METHOD: loadRegister(String register, Object operand) *
+     * DESCRIPTION: This method checks the type of the operand
+     *      and generates the corresponding MIPS instruction to
+     *      load the operand into the specified register. It the
+     *      operand is a double, the method loads it from the data
+     *      section, assuming it has already been stored. For strings,
+     *      the address of the string is loaded, and then the
+     *      string's value is fetched*
+     * PARAMETERS:
+     *      String register - the target register to load the operand
+     *      into (e.g., $t0, $f2)
+     *      Object operand - the value to load into the register. This
+     *      can be an integer, double, boolean, or string*
+     * EXCEPTION:
+     *      Throws IllegalArgumentException if the operand is of an
+     *       unsupported type
+     * RETURN VALUE: void *
+     **********************************************************/
     // Method to load a register with an operand
     public void loadRegister(String register, Object operand) {
         if (operand == null) {
@@ -276,67 +292,49 @@ public class MIPSGenerator {
         }
     }
 
-    public String getNextAvailableRegister() {
-        String[] availableRegisters = {"$t0", "$t1", "$t2", "$t3", "$t4", "$t5", "$t6", "$t7", "$t8", "$t9"};
-        String register = availableRegisters[registerCounter];
-
-        // Move the counter to the next register for the next call
-        registerCounter = (registerCounter + 1) % availableRegisters.length;
-
-        return register;
-    }
-
-    public String assignRegisterForCondition() {
-        if (freeRegisters.isEmpty()) {
-            throw new IllegalStateException("No more temporary registers available.");
-        }
-
-        // Get the next available register from the free register pool
-        String register = freeRegisters.pop();
-        usedRegisters.add(register);  // Mark it as in use
-        return register;
-    }
-
+    /**********************************************************
+     * METHOD: generateUniqueLabelForDouble(double value) *
+     * DESCRIPTION: This method generates a unique label by appending
+     *      the double value to the prefix double_, which is useful
+     *      for referencing double values in the data section of the
+     *      generated MIPS code*
+     * PARAMETERS: double value - the double value for which to generate
+     *      the label*
+     * RETURN VALUE: String - A unique label string for the given double
+     *      value, in the format double_<value>*
+     **********************************************************/
     private String generateUniqueLabelForDouble(double value){
         return "double_" + value;
     }
 
+    /**********************************************************
+     * METHOD: loadImmediate(String reg, int value) *
+     * DESCRIPTION: This method generates a MIPS li (load immediate)
+     *      instruction to load the specified integer value into the
+     *      given register*
+     * PARAMETERS: String reg : The target register to load the value into (e.g., $t0).
+     *      int value : The immediate value to load into the register
+     * RETURN VALUE: void*
+     **********************************************************/
     public static void loadImmediate(String reg, int value){
         addMipsInstruction("li " +reg+ ", " +value);
     }
 
-    public static void storeToMemory(String variableName, String reg){
-        String memoryLocation = getMemoryLocation(variableName);
-        addMipsInstruction("sw " +reg+ ", " +memoryLocation);
-    }
-
-    private static String getMemoryLocation(String variableName) {
-        // A placeholder that always returns the same memory location
-        return "0($sp)"; // For example, this could point to the stack location at the top of the stack
-    }
-
-//    public void generateAssignment(String assignment) {
-//        // Split the assignment into the variable name and the expression
-//        String variableName = assignment.split("=")[0].trim();
-//        String expression = assignment.split("=")[1].trim();
-//
-//        // Evaluate the expression to get the result register
-//        String resultRegister = evaluateExpression(expression);
-//
-//        // Get the register for the variable being assigned
-//        String variableRegister = symbolTable.getRegisterForVariable(variableName);
-//        if (variableRegister == null) {
-//            throw new IllegalArgumentException("Variable '" + variableName + "' not found in SymbolTable.");
-//        }
-//
-//        // Generate MIPS code to move the result into the variable's register
-//        System.out.println("Generated MIPS: move " + variableRegister + ", " + resultRegister);
-//
-//        // Optionally add the MIPS instruction to your list/queue of instructions
-//        addMipsInstruction("move " + variableRegister + ", " + resultRegister);
-//    }
-
-
+    /**********************************************************
+     * METHOD: evaluateExpression(String expression, String endLabel) *
+     * DESCRIPTION: This method splits the input expression into operands
+     *      and an operator, resolves the operands to registers, and generates MIPS
+     *      code to perform the operation based on the operator. It supports basic
+     *      arithmetic operations (+, -, *, /) and comparison operations
+     *      (<, >, ==, !=, <=, >=). It then adds the result to the MIPS code,
+     *      followed by a jump to the specified endLabel*
+     * PARAMETERS: String expression - the arithmetic expression to evaluate,
+     *      formatted as "operand1 operator operand2" (e.g., "x+y")
+     *      String endLabel - the label to jump to after evaluating the expression
+     *         (used for conditional branches)
+     * RETURN VALUE: String - A string containing the MIPS code for evaluating the
+     *      expression*
+     **********************************************************/
     // Example evaluateExpression method (simplified)
     public String evaluateExpression(String expression, String endLabel) {
         // Split the expression into operands and operator (assuming basic "operand operator operand" format)
@@ -370,7 +368,7 @@ public class MIPSGenerator {
                 break;
             case "<":
                 addMipsInstruction("slt " + regResult + ", " + reg1 + ", " + reg2); // Set less than
-                addMipsInstruction("beq " + regResult + ", $zero, " + endLabel); // Branch if equal
+                addMipsInstruction("bne " + regResult + ", $zero, " + endLabel); // Branch if equal
                 break;
             case ">":
                 addMipsInstruction("slt " + regResult + ", " + reg2 + ", " + reg1); // Set less than (reverse the operands)
@@ -403,6 +401,15 @@ public class MIPSGenerator {
         return String.join("\n", mipsCode);
     }
 
+    /**********************************************************
+     * METHOD: mipsAdd(String reg1, String reg2, String regResult) *
+     * DESCRIPTION: Generates MIPS assembly code to perform addition between two operands (either registers or an immediate value). *
+     * PARAMETERS: *
+     *     String reg1 - The first operand (either a register or an integer literal). *
+     *     String reg2 - The second operand (either a register or an integer literal). *
+     *     String regResult - The register where the result of the addition will be stored. *
+     * RETURN VALUE: none *
+     **********************************************************/
     public void mipsAdd(String reg1, String reg2, String regResult) {
         System.out.println("mipsAdd called with reg1=" + reg1 + ", reg2=" + reg2 + ", regResult=" + regResult);
 
@@ -417,6 +424,15 @@ public class MIPSGenerator {
         }
     }
 
+    /**********************************************************
+     * METHOD: mipsSub(String reg1, String reg2, String regResult) *
+     * DESCRIPTION: Generates MIPS assembly code to perform subtraction between two operands (either registers or an immediate value). *
+     * PARAMETERS: *
+     *     String reg1 - The first operand (either a register or an integer literal). *
+     *     String reg2 - The second operand (either a register or an integer literal). *
+     *     String regResult - The register where the result of the subtraction will be stored. *
+     * RETURN VALUE: none *
+     **********************************************************/
 
     public void mipsSub(String reg1, String reg2, String regResult) {
         if (isRegister(reg1) && isRegister(reg2)) {
@@ -430,6 +446,15 @@ public class MIPSGenerator {
         }
     }
 
+    /**********************************************************
+     * METHOD: mipsMul(String reg1, String reg2, String regResult) *
+     * DESCRIPTION: Generates MIPS assembly code to perform multiplication between two operands (either registers or an immediate value). *
+     * PARAMETERS: *
+     *     String reg1 - The first operand (either a register or an integer literal). *
+     *     String reg2 - The second operand (either a register or an integer literal). *
+     *     String regResult - The register where the result of the multiplication will be stored. *
+     * RETURN VALUE: none *
+     **********************************************************/
     public void mipsMul(String reg1, String reg2, String regResult) {
         if (isRegister(reg1) && isRegister(reg2)) {
             // Case 1: Both operands are registers (integers)
@@ -442,7 +467,15 @@ public class MIPSGenerator {
         }
     }
 
-
+    /**********************************************************
+     * METHOD: mipsDiv(String reg1, String reg2, String regResult) *
+     * DESCRIPTION: Generates MIPS assembly code to perform division between two operands (either registers or an immediate value). Throws an ArithmeticException if attempting to divide by zero. *
+     * PARAMETERS: *
+     *     String reg1 - The first operand (either a register or an integer literal). *
+     *     String reg2 - The second operand (either a register or an integer literal). *
+     *     String regResult - The register where the result of the division will be stored. *
+     * RETURN VALUE: none *
+     **********************************************************/
     public void mipsDiv(String reg1, String reg2, String regResult) {
         if(Integer.parseInt(reg2) == 0){
             throw new ArithmeticException("Division by 0");
@@ -461,11 +494,28 @@ public class MIPSGenerator {
         }
     }
 
+    /**********************************************************
+     * METHOD: isRegister(String operand) *
+     * DESCRIPTION: Checks if a given operand is a register (starts with '$'). *
+     * PARAMETERS: *
+     *     String operand - The operand to check. *
+     * RETURN VALUE: *
+     *     boolean - true if the operand is a register, otherwise false. *
+     **********************************************************/
     private boolean isRegister(String operand) {
         return operand.startsWith("$"); // Check if the operand is a register (starts with '$')
     }
 
-
+    /**********************************************************
+     * METHOD: resolveToRegister(String operand) *
+     * DESCRIPTION: Resolves an operand to a register. If the operand is an integer literal, it returns the literal. If the operand is a variable, it retrieves the corresponding register from the SymbolTable. *
+     * PARAMETERS: *
+     *    String  operand - The operand to resolve (either a register or a variable). *
+     * RETURN VALUE: *
+     *    String - The resolved register or immediate value. *
+     * EXCEPTION:
+     *     Throws IllegalArgumentException if the variable is not found in the SymbolTable. *
+     **********************************************************/
     private String resolveToRegister(String operand) {
         // Check if operand is an integer literal
         if (isInteger(operand)) {
@@ -486,6 +536,14 @@ public class MIPSGenerator {
         }
     }
 
+    /**********************************************************
+     * METHOD: isInteger(String token) *
+     * DESCRIPTION: Checks if a given string represents an integer. *
+     * PARAMETERS: *
+     *    String token - The string to check. *
+     * RETURN VALUE: *
+     *    boolean - true if the string can be parsed as an integer, otherwise false. *
+     **********************************************************/
     public boolean isInteger(String token) {
         try {
             Integer.parseInt(token);
@@ -495,25 +553,16 @@ public class MIPSGenerator {
         }
     }
 
-    private boolean isDouble(String operand) {
-        try {
-            Double.parseDouble(operand);
-            return true;
-        } catch (NumberFormatException e) {
-            return false;
-        }
-    }
-
-    private boolean isImmediateValue(String operand) {
-        try {
-            Integer.parseInt(operand); // Try to parse the operand as an integer
-            return true;
-        } catch (NumberFormatException e) {
-            return false; // Not an integer, so it's not an immediate value
-        }
-    }
-
-
+    /**********************************************************
+     * METHOD: convertConditionToMips(String condition, String label, SymbolTable symbolTable) *
+     * DESCRIPTION: Converts a condition (e.g., "x < 5") into MIPS assembly code for comparison and branching. *
+     * PARAMETERS: *
+     *     String condition - The condition to convert (e.g., "x < 5"). *
+     *     String label - The label to jump to if the condition is true. *
+     *     SymbolTable symbolTable - The SymbolTable used to resolve variable registers. *
+     * RETURN VALUE: *
+     *    String - The generated MIPS assembly code as a string. *
+     **********************************************************/
     public String convertConditionToMips(String condition, String label, SymbolTable symbolTable) {
         // Split the condition into parts (e.g., "x < 5" -> ["x", "<", "5"])
         String[] conditionParts = condition.split(" ");
@@ -566,7 +615,15 @@ public class MIPSGenerator {
         return mipsCode.toString();
     }
 
-
+    /**********************************************************
+     * METHOD: generateIfElse(String condition, List<String> ifBodyTokens, List<String> elseBodyTokens) *
+     * DESCRIPTION: Generates MIPS assembly code for an if-else structure. The method evaluates a condition and generates MIPS for both the "if" and "else" blocks. *
+     * PARAMETERS: *
+     * - String condition: A string representing the condition to evaluate. *
+     * - List<String> ifBodyTokens: A list of strings representing the tokens for the "if" block. *
+     * - List<String> elseBodyTokens: A list of strings representing the tokens for the "else" block. *
+     * RETURN VALUE: None *
+     **********************************************************/
     public void generateIfElse(String condition, List<String> ifBodyTokens, List<String> elseBodyTokens) {
         addMipsInstruction(" ");
         // Generate labels for the if-else structure
@@ -606,33 +663,13 @@ public class MIPSGenerator {
         addMipsInstruction(endLabel + ":");
     }
 
-    // Helper method to extract the operator from the condition
-    private String extractOperatorFromCondition(String condition) {
-        // Simple example, could be extended based on your actual condition format
-        if (condition.contains("<")) {
-            return "<";
-        } else if (condition.contains(">")) {
-            return ">";
-        } else if (condition.contains("==")) {
-            return "==";
-        } else if (condition.contains("!=")) {
-            return "!=";
-        } else {
-            throw new IllegalArgumentException("Invalid operator in condition");
-        }
-    }
-
-    // Helper methods to extract data and constant registers (dummy implementations, replace with actual logic)
-    private String getDataRegisterForCondition(String condition) {
-        // Logic to return the data register associated with the condition (for now, dummy return)
-        return "$t0";  // Example, replace with actual register logic
-    }
-
-    private String getConstantRegisterForCondition(String condition) {
-        // Logic to return the constant register (for now, dummy return)
-        return "$t1";  // Example, replace with actual register logic
-    }
-
+    /**********************************************************
+     * METHOD: processBodyTokens(List<String> bodyTokens) *
+     * DESCRIPTION: Processes a list of body tokens and generates MIPS code for each token. It handles print statements, assignments, and nested if-else structures. *
+     * PARAMETERS: *
+     * - List<String> bodyTokens: A list of strings representing the tokens in the body of a control structure. *
+     * RETURN VALUE: None *
+     **********************************************************/
     public void processBodyTokens(List<String> bodyTokens) {
         for (String token : bodyTokens) {
             if (token.startsWith("print")) {
@@ -659,6 +696,13 @@ public class MIPSGenerator {
         }
     }
 
+    /**********************************************************
+     * METHOD: extractPrintMessage(String token) *
+     * DESCRIPTION: Extracts the message to be printed from a print statement token. *
+     * PARAMETERS: *
+     * - String token: A string representing the print statement, e.g., print("message"). *
+     * RETURN VALUE: String - A string containing the message to be printed. *
+     **********************************************************/
     private String extractPrintMessage(String token) {
         // Assuming format: print("message")
         int startIndex = token.indexOf("\"") + 1;
@@ -666,12 +710,27 @@ public class MIPSGenerator {
         return token.substring(startIndex, endIndex);
     }
 
+    /**********************************************************
+     * METHOD: generateAssignmentInstruction(String variable, String value) *
+     * DESCRIPTION: Generates MIPS assembly code to assign a value to a variable. The method handles integer assignment. *
+     * PARAMETERS: *
+     * - String variable: A string representing the variable name to which the value will be assigned. *
+     * - String value: A string representing the value to assign to the variable. *
+     * RETURN VALUE: None *
+     **********************************************************/
     private void generateAssignmentInstruction(String variable, String value) {
         // Assuming integer assignment
         addMipsInstruction("li $t0, " + value); // Load immediate value into a temporary register
         addMipsInstruction("sw $t0, " + variable); // Store the value into the variable's memory address
     }
 
+    /**********************************************************
+     * METHOD: extractIfBodyTokens(String token) *
+     * DESCRIPTION: Extracts the tokens for the "if" block from a given if statement string. *
+     * PARAMETERS: *
+     * - String token: A string representing the if statement containing the body in curly braces. *
+     * RETURN VALUE: List<String> - A list of strings representing the tokens in the "if" body. *
+     **********************************************************/
     private List<String> extractIfBodyTokens(String token) {
         // Extracts tokens between `{` and `}` of the `if` block
         int start = token.indexOf("{") + 1;
@@ -680,6 +739,14 @@ public class MIPSGenerator {
         return Arrays.asList(body.split(";")); // Assuming semicolon-separated statements
     }
 
+
+    /**********************************************************
+     * METHOD: extractElseBodyTokens(String token) *
+     * DESCRIPTION: Extracts the tokens for the "else" block from a given if-else statement string. *
+     * PARAMETERS: *
+     * - String - token: A string representing the if-else statement containing the body in curly braces. *
+     * RETURN VALUE: List<String> - A list of strings representing the tokens in the "else" body. If no "else" block exists, returns an empty list. *
+     **********************************************************/
     private List<String> extractElseBodyTokens(String token) {
         // Extracts tokens for the `else` block, if it exists
         int elseIndex = token.indexOf("else");
@@ -690,58 +757,14 @@ public class MIPSGenerator {
         return Arrays.asList(body.split(";")); // Assuming semicolon-separated statements
     }
 
-
-    public void generateWhileLoopCondition(String condition, String conditionRegister) {
-        if(condition == null || condition.trim().isEmpty()){
-            throw new IllegalArgumentException("Condition cannot be null or empty.");
-        }
-
-        // Assuming the condition is in the format "y < 5"
-        String[] conditionTokens = condition.split(" ");
-        if (conditionTokens.length != 3) {
-            throw new IllegalArgumentException("Invalid condition format.");
-        }
-
-        String variable = conditionTokens[0].trim();  // "y"
-        String operator = conditionTokens[1].trim();  // "<"
-        String value = conditionTokens[2].trim();     // "5"
-
-        // Resolve the variable to its register
-        String register = resolveToRegister(variable);
-
-        // Allocate a temporary register for the constant value (5)
-        String constantRegister = allocateTempRegister();
-        addMipsInstruction("li " + constantRegister + ", " + value);  // Load 5 into a temporary register
-
-        // Generate the comparison MIPS instruction based on the operator
-        switch (operator) {
-            case "<":
-                addMipsInstruction("slt " + conditionRegister + ", " + register + ", " + constantRegister);
-                break;
-            case "<=":
-                addMipsInstruction("sle " + conditionRegister + ", " + register + ", " + constantRegister);
-                break;
-            case ">":
-                addMipsInstruction("sgt " + conditionRegister + ", " + register + ", " + constantRegister);
-                break;
-            case ">=":
-                addMipsInstruction("sge " + conditionRegister + ", " + register + ", " + constantRegister);
-                break;
-            case "==":
-                addMipsInstruction("beq " + conditionRegister + ", " + register + ", " + constantRegister);
-                break;
-            case "!=":
-                addMipsInstruction("bne " + conditionRegister + ", " + register + ", " + constantRegister);
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported operator: " + operator);
-        }
-
-        // Debug output: check the condition register after the comparison
-        // Add any conditional jump logic as needed, e.g., `bnez`
-    }
-
-
+    /**********************************************************
+     * METHOD: generateWhileLoop(String condition, List<String> bodyTokens) *
+     * DESCRIPTION: Generates MIPS assembly code for a while loop. The method processes the loop condition and body tokens, generating the appropriate assembly instructions. *
+     * PARAMETERS: *
+     * - String condition: A string representing the loop condition. *
+     * - List<String> - bodyTokens: A list of strings representing the tokens in the body of the while loop. *
+     * RETURN VALUE: None *
+     **********************************************************/
     // Generate MIPS code for a 'while' loop
     // Method to generate MIPS code for a while loop
     public void generateWhileLoop(String condition, List<String> bodyTokens) {
@@ -758,56 +781,22 @@ public class MIPSGenerator {
         // Retrieve the register for the loop variable (e.g., "y")
         String dataRegister = assignRegister(loopVar);
 
-        // Handle the constant as a value (assign to a new register if necessary)
-        String constantRegister = assignRegister(constant); // Register for constant value
-        String conditionRegister = assignRegisterForCondition(); // Register for condition result
-
         // Start of the loop
         String startLabel = "label_6";
         String endLabel = "label_7";
         addMipsInstruction(startLabel + ":");
 
-        // Condition check
+        // Condition check using the evaluateExpression method
         addComment("Check condition for " + loopVar + " " + operator + " " + constant);
-        switch (operator) {
-            case "<":
-                addMipsInstruction("slt " + conditionRegister + ", " + dataRegister + ", " + constantRegister);
-                break;
-            case ">":
-                addMipsInstruction("slt " + conditionRegister + ", " + constantRegister + ", " + dataRegister);
-                break;
-            case "==":
-                addMipsInstruction("sub " + conditionRegister + ", " + dataRegister + ", " + constantRegister);
-                addMipsInstruction("beq " + conditionRegister + ", $zero, " + endLabel);
-                break;
-            case "!=":
-                addMipsInstruction("sub " + conditionRegister + ", " + dataRegister + ", " + constantRegister);
-                addMipsInstruction("bne " + conditionRegister + ", $zero, " + endLabel);
-                break;
-            case "<=":
-                // For <=, check if the value is greater than the constant and jump if true
-                addMipsInstruction("slt " + conditionRegister + ", " + constantRegister + ", " + dataRegister); // less than
-                addMipsInstruction("beq " + conditionRegister + ", $zero, " + endLabel); // if true, jump to end (greater than)
-                break;
-            case ">=":
-                // For >=, check if the value is less than the constant and jump if true
-                addMipsInstruction("slt " + conditionRegister + ", " + dataRegister + ", " + constantRegister); // less than
-                addMipsInstruction("beq " + conditionRegister + ", $zero, " + endLabel); // if true, jump to end (less than)
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported operator: " + operator);
-        }
-
-
-        // If the condition is false, jump to the end of the loop
-        addMipsInstruction("beq " + conditionRegister + ", $zero, " + endLabel);
+        evaluateExpression(condition, endLabel);
 
         // Loop body
+        // Inside the loop body processing
         for (String bodyToken : bodyTokens) {
             bodyToken = bodyToken.trim();
 
             if (bodyToken.contains("=")) {
-                // Assignment statement with an arithmetic expression
+                // Assignment statement with an arithmetic expression (e.g., y = y + 1)
                 String[] statementParts = bodyToken.split("=");
                 String leftSide = statementParts[0].trim();
                 String rightSide = statementParts[1].trim().replace(";", ""); // Remove semicolon
@@ -818,11 +807,30 @@ public class MIPSGenerator {
                     throw new IllegalStateException("Variable '" + leftSide + "' not found in symbol table");
                 }
 
-                // Evaluate the right-hand side expression
-                String resultRegister = evaluateExpression(rightSide, endLabel); // Evaluate the arithmetic expression
+                // Handle cases like y = y + 1
+                if (rightSide.contains("+") || rightSide.contains("-")) {
+                    // For expressions like "y + 1" or "y - 1"
+                    String[] operands = rightSide.split("\\+|\\-");
+                    String operand1 = operands[0].trim();
+                    String operand2 = operands[1].trim();
 
-                // Store the result in the left-hand side variable's register
-                addMipsInstruction("move " + leftRegister + ", " + resultRegister);
+                    // Get the registers for operands
+                    String operand1Register = symbolTable.getRegisterForVariable(operand1);
+                    String operand2Register = assignRegister(operand2); // Register for the constant value, e.g., 1
+
+                    if (operand1Register == null) {
+                        throw new IllegalStateException("Operand variable '" + operand1 + "' not found in symbol table");
+                    }
+
+                    String resultRegister = evaluateExpression(rightSide, endLabel);
+
+                    // Store the result back into the left-hand side variable register
+                    addMipsInstruction("move " + leftRegister + ", " + resultRegister);
+                } else {
+                    // Handle simple assignments without arithmetic expressions
+                    String resultRegister = evaluateExpression(rightSide, endLabel); // Evaluate the arithmetic expression
+                    addMipsInstruction("move " + leftRegister + ", " + resultRegister);
+                }
             } else if (bodyToken.equals("++") || bodyToken.equals("--")) {
                 handleIncrementOrDecrement(bodyToken);
             } else if (bodyToken.startsWith("print")) {
@@ -831,6 +839,7 @@ public class MIPSGenerator {
                 processBodyToken(bodyToken);
             }
         }
+
 
         // Store the updated value of the loop variable back to memory (if applicable)
         addMipsInstruction("sw " + dataRegister + ", " + loopVar);
@@ -842,66 +851,12 @@ public class MIPSGenerator {
         addMipsInstruction(endLabel + ":");
     }
 
-    private void processVariableToken(String varToken) {
-        // This method can be used to handle cases where the token is a variable
-        // For now, let's just log it for clarity
-        addComment("Processing variable token: " + varToken);
-    }
-
-    // Process an assignment statement like "y = y + 1;"
-    public void processAssignmentStatement(String bodyToken) {
-        String[] statementParts = bodyToken.split("=");
-        String leftSide = statementParts[0].trim();
-        String rightSide = statementParts[1].trim().replace(";", ""); // Remove semicolon
-
-        // Resolve the register for the left-hand side variable
-        String leftRegister = symbolTable.getRegisterForVariable(leftSide);
-        if (leftRegister == null) {
-            throw new IllegalStateException("Variable '" + leftSide + "' not found in symbol table");
-        }
-
-        // Now we need to process the right-hand side of the equation (e.g., y + 1)
-        String resultRegister = null;
-
-        // Check if the right-hand side contains arithmetic operations
-        if (rightSide.contains("+")) {
-            String[] operands = rightSide.split("\\+");
-            String leftOperand = operands[0].trim();
-            String rightOperand = operands[1].trim();
-
-            // Call mipsAdd for addition
-            mipsAdd(leftOperand, rightOperand, leftRegister);
-        } else if (rightSide.contains("-")) {
-            String[] operands = rightSide.split("-");
-            String leftOperand = operands[0].trim();
-            String rightOperand = operands[1].trim();
-
-            // Call mipsSub for subtraction
-            mipsSub(leftOperand, rightOperand, leftRegister);
-        } else if (rightSide.contains("*")) {
-            String[] operands = rightSide.split("\\*");
-            String leftOperand = operands[0].trim();
-            String rightOperand = operands[1].trim();
-
-            // Call mipsMul for multiplication
-            mipsMul(leftOperand, rightOperand, leftRegister);
-        } else if (rightSide.contains("/")) {
-            String[] operands = rightSide.split("/");
-            String leftOperand = operands[0].trim();
-            String rightOperand = operands[1].trim();
-
-            // Call mipsDiv for division
-            mipsDiv(leftOperand, rightOperand, leftRegister);
-        } else {
-            // If there's no arithmetic operation, evaluate the right side normally
-            resultRegister = evaluateExpression(rightSide, generateLabel());
-        }
-
-        // Store the result in the left-hand side variable's register
-        addMipsInstruction("move " + leftRegister + ", " + resultRegister);
-    }
-
-
+    /**********************************************************
+     * METHOD: handlePrintStatement(String statement) *
+     * DESCRIPTION: Handles the print statement by extracting the variable name and generating MIPS code to print its value. *
+     * PARAMETERS: String statement - The print statement to handle, in the form of "print(variable)". The variable should be extracted and printed using its corresponding register. *
+     * RETURN VALUE: None *
+     **********************************************************/
     private void handlePrintStatement(String statement) {
         // Parse the print statement
         String regex = "print\\s*\\(\\s*(\\w+)\\s*\\)";
@@ -922,66 +877,12 @@ public class MIPSGenerator {
         }
     }
 
-    private void handleAssignmentStatement(String[] statement) {
-        // Handle assignments like y = y + 1 or y = z + 1;
-        // statement[0] is the left side ("y"), statement[1] is the right side ("y + 1")
-        String leftSide = statement[0].trim();
-        String rightSide = statement[1].trim();
-
-        // Load the current value of the left-side variable (e.g., y)
-        String register = symbolTable.getRegisterForVariable(leftSide);
-        if (register == null) {
-            throw new IllegalStateException("Variable '" + leftSide + "' not found in symbol table");
-        }
-
-        // Parse and evaluate the right-hand side (e.g., "y + 1")
-        String[] operandsAndOperator = parseExpression(rightSide);
-
-        // Load operands into registers
-        String regOperand1 = getOperandRegister(operandsAndOperator[0].trim());  // Get register for operand1 (e.g., "y")
-        String regOperand2 = getOperandRegister(operandsAndOperator[1].trim());  // Get register for operand2 (e.g., "1")
-
-        addMipsInstruction("add " + register + ", " + regOperand1 + ", " + regOperand2);
-
-        // Update the symbol table with the new value of the left-side variable
-        symbolTable.addRegisterToVariable(leftSide, register);
-    }
-
-    private String[] parseExpression(String expression) {
-        // This method parses the right-hand side expression (e.g., "y + 1")
-        // and returns the operands and operator in an array of size 2.
-        String[] operandsAndOperator;
-
-        // Check for operators and split accordingly (can be extended for other operators)
-        if (expression.contains("+")) {
-            operandsAndOperator = expression.split("\\+");
-        } else if (expression.contains("-")) {
-            operandsAndOperator = expression.split("-");
-        } else if (expression.contains("*")) {
-            operandsAndOperator = expression.split("\\*");
-        } else if (expression.contains("/")) {
-            operandsAndOperator = expression.split("/");
-        } else {
-            // If no operator is found, treat it as a single operand (e.g., just a number or variable)
-            operandsAndOperator = new String[]{expression};
-        }
-
-        return operandsAndOperator;
-    }
-
-    private String getOperandRegister(String operand) {
-        // Check if the operand is a variable
-        if (symbolTable.containsVariable(operand)) {
-            return symbolTable.getRegisterForVariable(operand);
-        } else {
-            // If it's a constant, load it into a temporary register
-            String tempRegister = assignRegister(operand);
-            addMipsInstruction("li " + tempRegister + ", " + operand); // Load immediate value
-            return tempRegister;
-        }
-    }
-
-
+    /**********************************************************
+     * METHOD: assignRegister(String variable) *
+     * DESCRIPTION: Assigns a register for a given variable. If the variable is a constant, it is handled differently by loading the immediate value into a register. *
+     * PARAMETERS: String variable - The variable for which a register is assigned. *
+     * RETURN VALUE: String - The register that holds the value of the variable. *
+     **********************************************************/
     public String assignRegister(String variable) {
         // Check if the variable is a number or an immediate constant (this includes literal values)
         boolean isConstant = isConstant(variable); // Helper method to check if the variable is a constant value
@@ -1025,6 +926,12 @@ public class MIPSGenerator {
         return register;
     }
 
+    /**********************************************************
+     * METHOD: isConstant(String variable) *
+     * DESCRIPTION: Helper method to check if a variable is a constant (numeric value). *
+     * PARAMETERS: String variable - The variable to check. *
+     * RETURN VALUE: boolean - True if the variable is a constant, false otherwise. *
+     **********************************************************/
     // Helper method to check if a variable is a constant (numeric value)
     private boolean isConstant(String variable) {
         try {
@@ -1035,8 +942,12 @@ public class MIPSGenerator {
         }
     }
 
-
-
+    /**********************************************************
+     * METHOD: generatePrint(String register) *
+     * DESCRIPTION: Generates MIPS code to print an integer using the value stored in the given register. *
+     * PARAMETERS: String register - The register containing the integer value to be printed. *
+     * RETURN VALUE: None *
+     **********************************************************/
     // Method to generate the MIPS code for printing an integer (value in $a0)
     public void generatePrint(String register) {
         if (register != null) {
@@ -1048,6 +959,12 @@ public class MIPSGenerator {
         }
     }
 
+    /**********************************************************
+     * METHOD: handleIncrementOrDecrement(String expression) *
+     * DESCRIPTION: Handles increment or decrement operations (e.g., "i++" or "i--"). This method extracts the variable and calls generateIncrementOrDecrement for processing. *
+     * PARAMETERS: String expression - The expression to process, which can be either an increment (++) or decrement (--). *
+     * RETURN VALUE: None *
+     **********************************************************/
     public void handleIncrementOrDecrement(String expression) {
         // Check if the expression contains '++' or '--'
         if (expression.contains("++")) {
@@ -1073,8 +990,13 @@ public class MIPSGenerator {
         }
     }
 
-
-
+    /**********************************************************
+     * METHOD: generateIncrementOrDecrement(String variable, boolean isIncrement) *
+     * DESCRIPTION: Generates MIPS code to increment or decrement a variable. *
+     * PARAMETERS: String variable - The variable to increment or decrement. *
+     *             boolean isIncrement - True for increment, false for decrement. *
+     * RETURN VALUE: None *
+     **********************************************************/
     public void generateIncrementOrDecrement(String variable, boolean isIncrement) {
         // Check if the variable is already assigned a register
         String register = symbolTable.getRegister(variable);
@@ -1102,8 +1024,15 @@ public class MIPSGenerator {
         }
     }
 
-
-
+    /**********************************************************
+     * METHOD: generateForLoop(String initialization, String condition, String increment, List<String> bodyTokens) *
+     * DESCRIPTION: Generates MIPS code for a for loop, including initialization, condition check, body execution, and increment/decrement operation. *
+     * PARAMETERS: String initialization - The initialization statement for the loop (e.g., "i = 0"). *
+     *            String condition - The loop condition to check (e.g., "i < 10"). *
+     *            String increment - The increment or decrement operation (e.g., "i++"). *
+     *            List<String>  bodyTokens - The list of tokens representing the body of the loop. *
+     * RETURN VALUE: None *
+     **********************************************************/
     // Method to handle the entire for loop with the print and increment functionality
     public void generateForLoop(String initialization, String condition, String increment, List<String> bodyTokens) {
         addMipsInstruction(" ");
@@ -1175,6 +1104,12 @@ public class MIPSGenerator {
         addMipsInstruction(endLabel + ":");
     }
 
+    /**********************************************************
+     * METHOD: processBodyToken(String bodyToken) *
+     * DESCRIPTION: Processes each token in the body of the loop, handling different types of statements such as variable declarations, assignments, and control structures. *
+     * PARAMETERS: String bodyToken - The token representing a statement in the loop body. *
+     * RETURN VALUE: None *
+     **********************************************************/
     private void processBodyToken(String bodyToken) {
         bodyToken = bodyToken.trim();
         System.out.println("Processing body token: '" + bodyToken + "'");
@@ -1227,6 +1162,13 @@ public class MIPSGenerator {
         }
     }
 
+    /**********************************************************
+     * METHOD: generateMove(String destinationRegister, String sourceRegister) *
+     * DESCRIPTION: Generates a MIPS move instruction, which either loads an immediate value or moves a value from one register to another. *
+     * PARAMETERS: String destinationRegister - The register where the value will be moved. *
+     *             String sourceRegister - The register or literal value to be moved. *
+     * RETURN VALUE: None *
+     **********************************************************/
     public void generateMove(String destinationRegister, String sourceRegister) {
         // Check if sourceRegister is a literal (immediate value)
         if (sourceRegister.matches("-?\\d+")) {  // If it's a literal (integer)
@@ -1238,28 +1180,12 @@ public class MIPSGenerator {
         }
     }
 
-
-    public String getRegisterForExpression(String value) {
-        System.out.println("Getting register for expression: " + value);  // Debug print
-
-        if (value.matches("\\d+")) { // Check if it's a number
-            return "$" + value;  // Return it as an immediate value (e.g., $5)
-        } else {
-            String variableName = value.trim();
-            System.out.println("Looking up register for variable: " + variableName);  // Debug print
-
-            // For variables, lookup the register from the symbol table
-            String register = symbolTable.getRegisterForVariable(variableName);
-            if (register != null) {
-                return register;
-            } else {
-                System.out.println("No register found for variable: " + variableName);  // Debug print
-                return null;
-            }
-        }
-    }
-
-
+    /**********************************************************
+     * METHOD: extractCondition(String token) *
+     * DESCRIPTION: Extracts the condition from an 'if' or 'while' statement, enclosed within parentheses. *
+     * PARAMETERS: String token - The token representing the 'if' or 'while' statement, containing the condition. *
+     * RETURN VALUE: String - The condition as a string, extracted from the parentheses. *
+     **********************************************************/
     // Extract condition from an 'if' or 'while' statement
     private String extractCondition(String token) {
         int start = token.indexOf("(") + 1;
@@ -1270,6 +1196,12 @@ public class MIPSGenerator {
         return token.substring(start, end).trim();
     }
 
+    /**********************************************************
+     * METHOD: extractIfTokens(String bodyToken) *
+     * DESCRIPTION: Extracts the individual statements from the body of an 'if' block. Assumes the block follows the format "if(condition) { ... } else { ... }". *
+     * PARAMETERS: String bodyToken - The token representing the body of the 'if' block, including the 'if' and 'else' sections. *
+     * RETURN VALUE: List<String> - A list of strings, each representing an individual statement in the 'if' block. *
+     **********************************************************/
     private List<String> extractIfTokens(String bodyToken) {
         // Extract tokens for the if block
         // Assumes the format "if(condition) { ... } else { ... }"
@@ -1282,6 +1214,12 @@ public class MIPSGenerator {
         return Arrays.asList(ifBody.split(";")); // Split into individual statements
     }
 
+    /**********************************************************
+     * METHOD: extractElseTokens(String bodyToken) *
+     * DESCRIPTION: Extracts the individual statements from the body of the 'else' block, if it exists. *
+     * PARAMETERS: String bodyToken - The token representing the body of the 'else' block. *
+     * RETURN VALUE: List<String> - A list of strings, each representing an individual statement in the 'else' block, or an empty list if no 'else' block exists. *
+     **********************************************************/
     private List<String> extractElseTokens(String bodyToken) {
         // Extract tokens for the else block (if it exists)
         int elseIndex = bodyToken.indexOf("else {");
@@ -1294,7 +1232,12 @@ public class MIPSGenerator {
         return Arrays.asList(elseBody.split(";")); // Split into individual statements
     }
 
-
+    /**********************************************************
+     * METHOD: extractBodyTokens(String token) *
+     * DESCRIPTION: Extracts the body (statements inside curly braces) from an 'if' or 'while' statement. *
+     * PARAMETERS: String token - The token representing the 'if' or 'while' statement, containing the body inside curly braces. *
+     * RETURN VALUE: List<String> - A list of strings, each representing an individual statement inside the curly braces. *
+     **********************************************************/
     // Extract body (statements inside curly braces) from an 'if' or 'while' statement
     private List<String> extractBodyTokens(String token) {
         int start = token.indexOf("{") + 1;
@@ -1306,6 +1249,14 @@ public class MIPSGenerator {
         return Arrays.asList(body.split(";")); // Assuming each statement in the body is separated by semicolons
     }
 
+    /**********************************************************
+     * METHOD: declareVariable(String variableName, String value, boolean inMainMethod) *
+     * DESCRIPTION: Declares a variable and assigns it a value. If the variable is in the main method, the value is loaded into a register. *
+     * PARAMETERS: String variableName - The name of the variable being declared. *
+     *             String value - The value to assign to the variable. *
+     *             boolean inMainMethod - A flag indicating whether the variable is in the main method. *
+     * RETURN VALUE: None *
+     **********************************************************/
     public void declareVariable(String variableName, String value, boolean inMainMethod) {
         String reg = symbolTable.getRegister(variableName);
 
@@ -1315,33 +1266,43 @@ public class MIPSGenerator {
         }
     }
 
-
-
+    /**********************************************************
+     * METHOD: generateLabel() *
+     * DESCRIPTION: Generates a unique label for use in the MIPS code. The label is prefixed with "label_" followed by an incrementing counter. *
+     * PARAMETERS: None *
+     * RETURN VALUE: String - A unique label as a string. *
+     **********************************************************/
     private String generateLabel() {
         return "label_" + labelCounter++;  // Increment and return a unique label
     }
 
+    /**********************************************************
+     * METHOD: addMipsInstruction(String instruction) *
+     * DESCRIPTION: Adds a MIPS instruction to the list of generated MIPS code. *
+     * PARAMETERS: String instruction - The MIPS instruction to add to the code. *
+     * RETURN VALUE: None *
+     **********************************************************/
     // Add an instruction to the list of generated MIPS code
     public static void addMipsInstruction(String instruction) {
         mipsCode.add(instruction);
     }
 
-    public String generateLabel(String baseName){
-        return baseName + "_" +labelCounter++;
-    }
-
-    public void addLabel(String label){
-        mipsCode.add(label+ ":");
-    }
-
+    /**********************************************************
+     * METHOD: addComment(String comment) *
+     * DESCRIPTION: Adds a comment to the list of generated MIPS code. *
+     * PARAMETERS: String comment - The comment to add. *
+     * RETURN VALUE: None *
+     **********************************************************/
     public void addComment(String comment){
         mipsCode.add("# " +comment);
     }
 
-    public void loadFromData(String variableName, String register){
-        addMipsInstruction("lw " +register+ ", " +variableName+ "($gp)");
-    }
-
+    /**********************************************************
+     * METHOD: generateDataSection() *
+     * DESCRIPTION: Prints the data section of the MIPS code, including all entries from the data section map. *
+     * PARAMETERS: None *
+     * RETURN VALUE: None *
+     **********************************************************/
     public void generateDataSection(){
         System.out.println();
         System.out.println(".data");
@@ -1350,6 +1311,12 @@ public class MIPSGenerator {
         }
     }
 
+    /**********************************************************
+     * METHOD: printMipsCode() *
+     * DESCRIPTION: Prints the generated MIPS code from the list of instructions. It includes the main section of the code. *
+     * PARAMETERS: None *
+     * RETURN VALUE: None *
+     **********************************************************/
     // Print the generated MIPS code
     public void printMipsCode() {
         System.out.println();
