@@ -679,12 +679,7 @@ public class MIPSGenerator {
             }
             // If the body token is an increment or decrement (e.g., "i++" or "i--")
             else if (bodyToken.equals("++") || bodyToken.equals("--")) {
-                // Handle the increment or decrement operation
-                if (bodyToken.equals("++")) {
-                    generateIncrementOrDecrement(loopVar, true) ; // Increment
-                } else if (bodyToken.equals("--")) {
-                    generateIncrementOrDecrement(loopVar, false);  // Decrement
-                }
+                handleIncrementOrDecrement(bodyToken);
             }
             // If the body token is a semicolon or needs special handling
             else if (bodyToken.equals(";")) {
@@ -786,92 +781,6 @@ public class MIPSGenerator {
     }
 
 
-    public String getRegisterForVariable(String variable) {
-        String register = symbolTable.getRegisterForVariable(variable);
-
-        // If no register found, assign a new register
-        if (register == null) {
-            register = assignRegister(variable); // This will assign a register if none exists
-            symbolTable.addRegisterToVariable(variable, register);
-        }
-
-        return register;
-    }
-
-
-    private String extractValueFromCondition(String condition) {
-        String[] parts = condition.split("\\s*([<=>!]=?|==)\\s*"); // Split by operators
-        if (parts.length != 2) {
-            throw new IllegalArgumentException("Invalid condition format: " + condition);
-        }
-        return parts[1].trim(); // Right-hand side value
-    }
-
-
-    // Method to extract the variable from a condition like 'x < 10' or 'y == 5'
-    public String extractVariableFromCondition(String condition) {
-        // Remove spaces and split the condition at operators
-        String trimmedCondition = condition.replaceAll("\\s+", "");  // Remove whitespace
-        String[] parts = trimmedCondition.split("[<>!=]=?");  // Split at any comparison operator
-
-        if (parts.length > 0) {
-            return parts[0];  // Return the first part, which should be the variable
-        }
-
-        throw new IllegalArgumentException("Invalid condition: " + condition);  // Handle invalid condition
-    }
-
-    public String extractOperatorFromCondition(String condition) {
-        if (condition.contains("<")) {
-            return "<";
-        } else if (condition.contains(">")) {
-            return ">";
-        } else if (condition.contains("==")) {
-            return "==";
-        } else if (condition.contains("<=")) {
-            return "<=";
-        } else if (condition.contains(">=")) {
-            return ">=";
-        } else if (condition.contains("!=")) {
-            return "!=";
-        }
-        return "";
-    }
-
-    public String extractWhileCondition(List<String> tokens) {
-        // Find the index of the opening and closing parentheses
-        int openIndex = tokens.indexOf("(");
-        int closeIndex = tokens.indexOf(")");
-
-        if (openIndex == -1 || closeIndex == -1 || closeIndex <= openIndex) {
-            throw new IllegalArgumentException("Invalid while loop syntax: missing parentheses.");
-        }
-
-        // Extract tokens between the parentheses and join them as a single condition string
-        List<String> conditionTokens = tokens.subList(openIndex + 1, closeIndex);
-        return String.join(" ", conditionTokens);
-    }
-
-
-    public boolean isValidCondition(String condition) {
-        // Regex to match conditions like "y < 5", "x >= 10", etc.
-        String conditionRegex = "\\w+\\s*[<>=!]=?\\s*\\w+";
-        return condition.matches(conditionRegex);
-    }
-
-    public List<String> extractBlockTokens(List<String> tokens) {
-        int openBraceIndex = tokens.indexOf("{");
-        int closeBraceIndex = tokens.indexOf("}");
-
-        if (openBraceIndex == -1 || closeBraceIndex == -1 || closeBraceIndex <= openBraceIndex) {
-            throw new IllegalArgumentException("Invalid block syntax: missing curly braces.");
-        }
-
-        // Extract tokens within the block
-        return tokens.subList(openBraceIndex + 1, closeBraceIndex);
-    }
-
-
     public String assignRegister(String variable) {
         if (availableRegisters.isEmpty()) {
             throw new RuntimeException("No available registers for variable: " + variable);
@@ -900,21 +809,32 @@ public class MIPSGenerator {
         }
     }
 
-
-    // Method to generate the MIPS code for incrementing a variable (value in $t0)
-    public void generateIncrement(String variable) {
-        // Check if the variable is already assigned a register
-        String register = symbolTable.getRegister(variable);
-
-        if (register == null) {
-            // If the variable doesn't have a register, assign one
-            register = allocateTempRegister();
+    public void handleIncrementOrDecrement(String expression) {
+        // Check if the expression contains '++' or '--'
+        if (expression.contains("++")) {
+            // Extract the variable part before '++' (e.g., "i" from "i++")
+            String variable = expression.split("\\+\\+")[0].trim();
+            if (!variable.isEmpty()) {
+                // If the variable is valid, treat it as an increment
+                generateIncrementOrDecrement(variable, true);  // True for increment
+            } else {
+                System.out.println("Error: Invalid increment expression: " + expression);
+            }
+        } else if (expression.contains("--")) {
+            // Extract the variable part before '--' (e.g., "i" from "i--")
+            String variable = expression.split("--")[0].trim();
+            if (!variable.isEmpty()) {
+                // If the variable is valid, treat it as a decrement
+                generateIncrementOrDecrement(variable, false);  // False for decrement
+            } else {
+                System.out.println("Error: Invalid decrement expression: " + expression);
+            }
+        } else {
+            System.out.println("Invalid increment/decrement operation: " + expression);
         }
-
-        // Generate MIPS instructions to increment the value in the register
-        addMipsInstruction("# Increment variable " + variable);
-        addMipsInstruction("addi " + register + ", " + register + ", 1");
     }
+
+
 
     public void generateIncrementOrDecrement(String variable, boolean isIncrement) {
         // Check if the variable is already assigned a register
@@ -923,15 +843,21 @@ public class MIPSGenerator {
         if (register == null) {
             // If the variable doesn't have a register, assign one
             register = allocateTempRegister();
+            symbolTable.addRegisterToVariable(variable, register);
+            System.out.println("Allocated new register for " + variable + ": " + register);
+        } else {
+            System.out.println("Register for " + variable + ": " + register);
         }
 
         // Determine the operation type (increment or decrement)
         if (isIncrement) {
-            // Generate MIPS instructions to increment the value in the register
+            // Debugging message to confirm the increment is being used
+            System.out.println("Incrementing variable " + variable);  // Debug message
             addMipsInstruction("# Increment variable " + variable);
             addMipsInstruction("addi " + register + ", " + register + ", 1");  // This should print the instruction
         } else {
-            // Generate MIPS instructions to decrement the value in the register
+            // Debugging message to confirm the decrement is being used
+            System.out.println("Decrementing variable " + variable);  // Debug message
             addMipsInstruction("# Decrement variable " + variable);
             addMipsInstruction("subi " + register + ", " + register + ", 1");  // This should print the instruction
         }
@@ -988,8 +914,15 @@ public class MIPSGenerator {
             }
         }
 
-        // Increment the loop variable
-        generateIncrement(loopVar);
+        String incrementTrimmed = increment.trim();  // Remove extra spaces
+        if (incrementTrimmed.endsWith("++")) {
+            // Handle increment "i++"
+            handleIncrementOrDecrement(incrementTrimmed);  // Pass "i++"
+        } else if (incrementTrimmed.endsWith("--")) {
+            // Handle decrement "i--"
+            handleIncrementOrDecrement(incrementTrimmed);  // Pass "i--"
+        }
+
 
         // Jump back to the start of the loop
         addMipsInstruction("j label_8");
