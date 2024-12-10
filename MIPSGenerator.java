@@ -316,32 +316,28 @@ public class MIPSGenerator {
             throw new IllegalArgumentException("Invalid expression format.");
         }
 
-        String operand1 = tokens[0]; // First operand (e.g., "a")
+        String operand1 = tokens[0]; // First operand (e.g., "y")
         String operator = tokens[1]; // Operator (e.g., "+")
-        String operand2 = tokens[2]; // Second operand (e.g., "b")
+        String operand2 = tokens[2]; // Second operand (e.g., "5")
 
         // Allocate registers for operands and result
-        String reg1 = resolveToRegister(operand1);
-        String reg2 = resolveToRegister(operand2);
-        String regResult = allocateTempRegister();
-
-        // Load operands into registers
-//        loadRegister(reg1, operand1); // Load operand1 into reg1
-//        loadRegister(reg2, operand2); // Load operand2 into reg2
+        String reg1 = resolveToRegister(operand1);  // Resolve the register for operand1
+        String reg2 = resolveToRegister(operand2);  // Resolve the register for operand2
+        String regResult = allocateTempRegister();  // Allocate a temporary register for the result
 
         // Perform the operation based on the operator
         switch (operator) {
             case "+":
-                mipsAdd(reg1, reg2, regResult); // Perform addition
+                mipsAdd(reg1, reg2, regResult);  // Perform addition and store the result in regResult
                 break;
             case "-":
-                mipsSub(reg1, reg2, regResult); // Perform subtraction
+                mipsSub(reg1, reg2, regResult);  // Perform subtraction
                 break;
             case "*":
-                mipsMul(reg1, reg2, regResult); // Perform multiplication
+                mipsMul(reg1, reg2, regResult);  // Perform multiplication
                 break;
             case "/":
-                mipsDiv(reg1, reg2, regResult); // Perform division
+                mipsDiv(reg1, reg2, regResult);  // Perform division
                 break;
             default:
                 throw new IllegalArgumentException("Unsupported operator: " + operator);
@@ -414,17 +410,23 @@ public class MIPSGenerator {
     }
 
     private String resolveToRegister(String operand) {
+        // Check if operand is an integer literal
         if (isInteger(operand)) {
             // If operand is a literal, load it into a temporary register
             String tempRegister = allocateTempRegister();
+            System.out.println("Loading literal " + operand + " into register " + tempRegister);
             addMipsInstruction("li " + tempRegister + ", " + operand);
             return tempRegister;
         } else {
             // If operand is a variable, get its register from the SymbolTable
             String variableRegister = symbolTable.getRegisterForVariable(operand);
+
             if (variableRegister == null) {
+                System.out.println("Error: Variable '" + operand + "' not found in SymbolTable.");
                 throw new IllegalArgumentException("Variable '" + operand + "' not found in SymbolTable.");
             }
+
+            System.out.println("Resolved variable '" + operand + "' to register " + variableRegister);
             return variableRegister;
         }
     }
@@ -660,12 +662,6 @@ public class MIPSGenerator {
         String constantRegister = assignRegister(constant); // Register for constant value
         String conditionRegister = assignRegisterForCondition(); // Register for condition result
 
-        // Load the loop variable into a register
-//        addMipsInstruction("lw " + dataRegister + ", " + loopVar);
-
-        // Load the constant into a register
-//        addMipsInstruction("li " + constantRegister + ", " + constant);
-
         // Start of the loop
         String startLabel = "label_6";
         String endLabel = "label_7";
@@ -699,7 +695,22 @@ public class MIPSGenerator {
         for (String bodyToken : bodyTokens) {
             bodyToken = bodyToken.trim();
             if (bodyToken.contains("=")) {
-                handleAssignmentStatement(bodyToken);
+                // Assignment statement
+                String[] statementParts = bodyToken.split("=");
+                String leftSide = statementParts[0].trim();
+                String rightSide = statementParts[1].trim();
+
+                // Resolve the register for the left-hand side variable
+                String leftRegister = symbolTable.getRegisterForVariable(leftSide);
+                if (leftRegister == null) {
+                    throw new IllegalStateException("Variable '" + leftSide + "' not found in symbol table");
+                }
+
+                // Evaluate the right-hand side expression
+                String resultRegister = evaluateExpression(rightSide);
+
+                // Store the result in the left-hand side variable's register
+                addMipsInstruction("move " + leftRegister + ", " + resultRegister);
             } else if (bodyToken.equals("++") || bodyToken.equals("--")) {
                 handleIncrementOrDecrement(bodyToken);
             } else if (bodyToken.startsWith("print")) {
@@ -710,7 +721,7 @@ public class MIPSGenerator {
         }
 
         // Increment the loop variable (e.g., y = y + 1)
-        addMipsInstruction("addi " + dataRegister + ", " + dataRegister + ", 1");
+//    addMipsInstruction("addi " + dataRegister + ", " + dataRegister + ", 1");
 
         // Store the updated value of the loop variable back to memory
         addMipsInstruction("sw " + dataRegister + ", " + loopVar);
@@ -764,40 +775,63 @@ public class MIPSGenerator {
         }
     }
 
-    private void handleAssignmentStatement(String statement) {
-        // Handle assignments like y = y + 1;
-        // First, split the statement into left and right parts
-        String[] parts = statement.split("=");
-        String leftSide = parts[0].trim();  // "y"
-        String rightSide = parts[1].trim(); // "y + 1"
+    private void handleAssignmentStatement(String[] statement) {
+        // Handle assignments like y = y + 1 or y = z + 1;
+        // statement[0] is the left side ("y"), statement[1] is the right side ("y + 1")
+        String leftSide = statement[0].trim();
+        String rightSide = statement[1].trim();
 
-        // Load the current value of y
+        // Load the current value of the left-side variable (e.g., y)
         String register = symbolTable.getRegisterForVariable(leftSide);
         if (register == null) {
             throw new IllegalStateException("Variable '" + leftSide + "' not found in symbol table");
         }
 
-        // Split the right-hand side into operands (e.g., y + 1)
-        String[] rightParts = rightSide.split("\\+");
-        String operand1 = rightParts[0].trim();  // "y"
-        String operand2 = rightParts[1].trim();  // "1"
+        // Parse and evaluate the right-hand side (e.g., "y + 1")
+        String[] operandsAndOperator = parseExpression(rightSide);
 
-        // Load operand1 (y) into a register
-        String regOperand1 = symbolTable.getRegisterForVariable(operand1);
-        if (regOperand1 == null) {
-            throw new IllegalStateException("Variable '" + operand1 + "' not found in symbol table");
+        // Load operands into registers
+        String regOperand1 = getOperandRegister(operandsAndOperator[0].trim());  // Get register for operand1 (e.g., "y")
+        String regOperand2 = getOperandRegister(operandsAndOperator[1].trim());  // Get register for operand2 (e.g., "1")
+
+        addMipsInstruction("add " + register + ", " + regOperand1 + ", " + regOperand2);
+
+        // Update the symbol table with the new value of the left-side variable
+        symbolTable.addRegisterToVariable(leftSide, register);
+    }
+
+    private String[] parseExpression(String expression) {
+        // This method parses the right-hand side expression (e.g., "y + 1")
+        // and returns the operands and operator in an array of size 2.
+        String[] operandsAndOperator;
+
+        // Check for operators and split accordingly (can be extended for other operators)
+        if (expression.contains("+")) {
+            operandsAndOperator = expression.split("\\+");
+        } else if (expression.contains("-")) {
+            operandsAndOperator = expression.split("-");
+        } else if (expression.contains("*")) {
+            operandsAndOperator = expression.split("\\*");
+        } else if (expression.contains("/")) {
+            operandsAndOperator = expression.split("/");
+        } else {
+            // If no operator is found, treat it as a single operand (e.g., just a number or variable)
+            operandsAndOperator = new String[]{expression};
         }
 
-        // Load operand2 (1) into a register
-        String regOperand2 = assignRegister("temp"); // Temporary register for 1
-        addMipsInstruction("li " + regOperand2 + ", " + operand2);  // Load immediate value 1
+        return operandsAndOperator;
+    }
 
-        // Add y + 1 and store the result in y
-        String resultRegister = register;  // Register for y
-        addMipsInstruction("add " + resultRegister + ", " + regOperand1 + ", " + regOperand2);  // y = y + 1
-
-        // Update the symbol table with the new value of y
-        symbolTable.addRegisterToVariable(leftSide, resultRegister);
+    private String getOperandRegister(String operand) {
+        // Check if the operand is a variable
+        if (symbolTable.containsVariable(operand)) {
+            return symbolTable.getRegisterForVariable(operand);
+        } else {
+            // If it's a constant, load it into a temporary register
+            String tempRegister = assignRegister(operand);
+            addMipsInstruction("li " + tempRegister + ", " + operand); // Load immediate value
+            return tempRegister;
+        }
     }
 
 
