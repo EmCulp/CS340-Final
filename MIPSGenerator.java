@@ -517,7 +517,7 @@ public class MIPSGenerator {
         return mipsCode.toString();
     }
 
-    public String convertConditionToMips(String condition, String register, SymbolTable symbolTable) {
+    public String convertConditionToMips(String condition, String label, SymbolTable symbolTable) {
         // Split the condition into parts (e.g., "x < 5" -> ["x", "<", "5"])
         String[] conditionParts = condition.split(" ");
         String operator = conditionParts[1]; // Get the operator
@@ -533,29 +533,32 @@ public class MIPSGenerator {
         }
 
         // We need a temporary register to store the comparison result
-        String tempRegister = "$t1";  // We can use $t1 for storing the result
+        String tempRegister = "$t1"; // Temporary register for condition result
+        StringBuilder mipsCode = new StringBuilder();
 
         // Generate MIPS code based on the operator
-        String mipsCode = "";
-
         switch (operator) {
             case "<":
-                mipsCode = "slt " + tempRegister + ", " + leftRegister + ", " + rightOperand; // $t1 = (leftOperand < rightOperand) ? 1 : 0
+                mipsCode.append("slt ").append(tempRegister).append(", ").append(leftRegister).append(", ").append(rightOperand).append("\n");
+                mipsCode.append("bne ").append(tempRegister).append(", $zero, ").append(label).append("\n"); // Branch if true
                 break;
             case ">":
-                mipsCode = "sgt " + tempRegister + ", " + leftRegister + ", " + rightOperand; // $t1 = (leftOperand > rightOperand) ? 1 : 0
+                mipsCode.append("sgt ").append(tempRegister).append(", ").append(leftRegister).append(", ").append(rightOperand).append("\n");
+                mipsCode.append("bne ").append(tempRegister).append(", $zero, ").append(label).append("\n"); // Branch if true
                 break;
             case "<=":
-                mipsCode = "sle " + tempRegister + ", " + leftRegister + ", " + rightOperand; // $t1 = (leftOperand <= rightOperand) ? 1 : 0
+                mipsCode.append("sle ").append(tempRegister).append(", ").append(leftRegister).append(", ").append(rightOperand).append("\n");
+                mipsCode.append("bne ").append(tempRegister).append(", $zero, ").append(label).append("\n"); // Branch if true
                 break;
             case ">=":
-                mipsCode = "sge " + tempRegister + ", " + leftRegister + ", " + rightOperand; // $t1 = (leftOperand >= rightOperand) ? 1 : 0
+                mipsCode.append("sge ").append(tempRegister).append(", ").append(leftRegister).append(", ").append(rightOperand).append("\n");
+                mipsCode.append("bne ").append(tempRegister).append(", $zero, ").append(label).append("\n"); // Branch if true
                 break;
             case "==":
-                mipsCode = "beq " + tempRegister + ", " + leftRegister + ", " + rightOperand; // $t1 = (leftOperand == rightOperand) ? 1 : 0
+                mipsCode.append("beq ").append(leftRegister).append(", ").append(rightOperand).append(", ").append(label).append("\n"); // Branch if equal
                 break;
             case "!=":
-                mipsCode = "bne " + tempRegister + ", " + leftRegister + ", " + rightOperand; // $t1 = (leftOperand != rightOperand) ? 1 : 0
+                mipsCode.append("bne ").append(leftRegister).append(", ").append(rightOperand).append(", ").append(label).append("\n"); // Branch if not equal
                 break;
             default:
                 System.out.println("Error: Unsupported operator '" + operator + "'");
@@ -563,7 +566,7 @@ public class MIPSGenerator {
         }
 
         // Return the generated MIPS code
-        return mipsCode;
+        return mipsCode.toString();
     }
 
 
@@ -893,19 +896,25 @@ public class MIPSGenerator {
     // Method to handle the entire for loop with the print and increment functionality
     public void generateForLoop(String initialization, String condition, String increment, List<String> bodyTokens) {
         addMipsInstruction(" ");
+        // Initialize loop variable
         String loopVar = initialization.split("=")[0].trim();
         String initialValue = initialization.split("=")[1].trim();
         String register = assignRegister(loopVar);
 
+        // Add the loop variable to the symbol table
         symbolTable.addRegisterToVariable(loopVar, register);
+//        addMipsInstruction("li " + register + ", " + initialValue); // Load initial value into the register
 
-//        addMipsInstruction("li " + register + ", " + initialValue);
-        addMipsInstruction("label_8:");
+        String startLabel = "label_8"; // Start of the loop
+        String endLabel = "label_9";   // End of the loop
+
+        // Start of the loop
+        addMipsInstruction(startLabel + ":");
 
         // Condition check
         addComment("Check condition for " + loopVar);
-        String mipsCondition = convertConditionToMips(condition, register, symbolTable);
-        addMipsInstruction(mipsCondition); // Add the MIPS condition here
+        String mipsCondition = convertConditionToMips(condition, endLabel, symbolTable); // Pass the endLabel for conditional branching
+        addMipsInstruction(mipsCondition); // Add the condition check MIPS instructions
 
         // Process the body of the loop
         for (int i = 0; i < bodyTokens.size(); i++) {
@@ -940,21 +949,19 @@ public class MIPSGenerator {
             }
         }
 
-        String incrementTrimmed = increment.trim();  // Remove extra spaces
+        // Handle the increment or decrement statement
+        String incrementTrimmed = increment.trim(); // Remove extra spaces
         if (incrementTrimmed.endsWith("++")) {
-            // Handle increment "i++"
-            handleIncrementOrDecrement(incrementTrimmed);  // Pass "i++"
+            handleIncrementOrDecrement(incrementTrimmed); // Handle "i++"
         } else if (incrementTrimmed.endsWith("--")) {
-            // Handle decrement "i--"
-            handleIncrementOrDecrement(incrementTrimmed);  // Pass "i--"
+            handleIncrementOrDecrement(incrementTrimmed); // Handle "i--"
         }
 
-
         // Jump back to the start of the loop
-        addMipsInstruction("j label_8");
+        addMipsInstruction("j " + startLabel);
 
         // End of the loop
-        addMipsInstruction("label_9:");
+        addMipsInstruction(endLabel + ":");
     }
 
     private void processBodyToken(String bodyToken) {
