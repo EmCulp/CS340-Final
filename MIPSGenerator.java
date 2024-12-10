@@ -441,11 +441,9 @@ public class MIPSGenerator {
     private String resolveToRegister(String operand) {
         // Check if operand is an integer literal
         if (isInteger(operand)) {
-            // If operand is a literal, load it into a temporary register
-            String tempRegister = allocateTempRegister();
-            System.out.println("Loading literal " + operand + " into register " + tempRegister);
-            addMipsInstruction("li " + tempRegister + ", " + operand);
-            return tempRegister;
+            // If operand is a literal, return the literal value instead of a register
+            System.out.println("Using immediate value: " + operand);
+            return operand;  // Return the literal as a string
         } else {
             // If operand is a variable, get its register from the SymbolTable
             String variableRegister = symbolTable.getRegisterForVariable(operand);
@@ -602,11 +600,15 @@ public class MIPSGenerator {
 
 
     public void generateIfElse(String condition, List<String> bodyTokens) {
+        addMipsInstruction(" ");
         String labelTrue = generateLabel();
         String labelFalse = generateLabel();
         String labelEnd = generateLabel();
 
-        addMipsInstruction("bnez " + condition + ", " + labelTrue);  // Branch if condition is true
+        // Get the register associated with the condition (either variable or constant)
+        String conditionRegister = evaluateExpression(condition);  // Determine if it's variable or constant and get the register
+
+        addMipsInstruction("bnez " + conditionRegister + ", " + labelTrue);  // Branch if condition is true
         addMipsInstruction("j " + labelFalse);  // Else part
         addMipsInstruction(labelTrue + ":");
 
@@ -760,6 +762,16 @@ public class MIPSGenerator {
 
         // End of the loop
         addMipsInstruction(endLabel + ":");
+    }
+
+    public String getRegisterForVariableOrConstant(String variableOrConstant) {
+        if (isConstant(variableOrConstant)) {
+            // Handle constant (use assignRegister to load constant into a register)
+            return assignRegister(variableOrConstant);  // Pass constant directly to assignRegister
+        } else {
+            // Handle variable (use existing method to get register for variable)
+            return symbolTable.getRegisterForVariable(variableOrConstant);  // Use existing method to fetch register for variable
+        }
     }
 
 
