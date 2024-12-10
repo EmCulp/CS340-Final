@@ -127,35 +127,29 @@ public class Evaluator {
             throw new IllegalArgumentException("Unsupported data type for operand b. Only Integer and Double are supported.");
         }
 
-        // Create a string expression for the operation (e.g., "a + b")
-        String expression = a.toString() + " " + op + " " + b.toString();
-
-        // Perform the operation and generate MIPS instructions
-        String resultRegister = mipsGenerator.evaluateExpression(expression);
-
         // Perform the operation (for result in Integer or Double)
         double result;
         switch (op) {
             case '+':
                 result = x + y;
+                mipsGenerator.mipsAdd(reg1, reg2,regResult);
                 break;
             case '-':
                 result = x - y;
+                mipsGenerator.mipsSub(reg1, reg2,regResult);
                 break;
             case '*':
                 result = x * y;
+                mipsGenerator.mipsMul(reg1, reg2,regResult);
                 break;
             case '/':
                 if (y == 0) throw new ArithmeticException("Cannot divide by zero.");
                 result = x / y;
+                mipsGenerator.mipsDiv(reg1, reg2,regResult);
                 break;
             default:
+                System.out.println("Unsupported operator: " +op);
                 throw new IllegalArgumentException("Unsupported operator: " + op);
-        }
-
-        // Store the result as the correct type in the literal table
-        if (a instanceof Integer && b instanceof Integer) {
-            return (int) result; // Return as Integer if both operands were Integer
         }
 
         // Free the registers after use
@@ -163,8 +157,13 @@ public class Evaluator {
         mipsGenerator.freeRegister(reg2);
         mipsGenerator.freeRegister(regResult);
 
+        // Store the result as the correct type in the literal table
+        if (a instanceof Integer && b instanceof Integer) {
+            return (int) result;  // Return as Integer if both operands were Integer
+        }
+
         // Return the result in the correct type
-        return result; // Otherwise, return as Double
+        return result;  // Otherwise, return as Double
     }
 
     private boolean isImmediate(Object operand) {

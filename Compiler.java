@@ -289,10 +289,10 @@ public class Compiler {
 
         // Determine if we are inside a control structure (if-else, while, or for loop)
         if (isInsideControlStructure()) {
-            String reg = mipsGenerator.allocateTempRegister();
+//            String reg = mipsGenerator.allocateTempRegister();
             // Inside a control structure (local scope) - Add to stack
 //            mipsGenerator.pushToStack(reg);  // Add to the stack (allocate space)
-            symbolTable.addEntry(variableName, "int", 0, scope, reg);  // Add to symbol table as local
+            symbolTable.addEntry(variableName, "int", 0, scope, null);  // Add to symbol table as local
 
             System.out.println("Local variable declaration inside control structure: " + variableName);
         } else {
@@ -699,6 +699,12 @@ public class Compiler {
             try {
                 int value = Integer.parseInt(valueToken); // Convert the token to an integer
 
+                int literalID = literalTable.getLiteralID(value);
+                if(literalID == -1){
+                    literalID = literalTable.addLiteral(value);
+                    System.out.println("Encountered new literal " +value+ " with id " +literalID);
+                }
+
                 // No need to store in memory, just update symbol table and work with registers
                 String reg = mipsGenerator.allocateTempRegister();
                 mipsGenerator.loadImmediate(reg, value); // Load the value into a temporary register
@@ -734,8 +740,9 @@ public class Compiler {
                     mipsGenerator.addToDataSection(variableName, "0", "int"); // Default to 0 for uninitialized int
                 }
 
-                // Evaluate the expression to get the value to assign
-                Object result = evaluator.evaluate(valueExpression); // Use the Evaluator to calculate the value
+                // Use the evaluate method from MIPSGenerator to evaluate the expression
+                Object result = evaluator.evaluate(valueExpression); // Evaluate the expression
+
                 String variableType = symbolTable.getTypeByName(variableName);
 
                 if ("int".equals(variableType)) {

@@ -376,67 +376,68 @@ public class MIPSGenerator {
         return regResult;
     }
 
-    private void mipsAdd(String reg1, String reg2, String regResult) {
-        // Check if reg2 is an immediate value (constant)
-        if (isIntegerOperation(reg1, reg2) && isImmediateValue(reg2)) {
-            // Use addi when reg2 is an immediate value (constant)
-            addMipsInstruction("addi " + regResult + ", " + reg1 + ", " + reg2); // Integer add with immediate
-        } else if (isIntegerOperation(reg1, reg2)) {
-            // Use add when both operands are registers (integer add)
-            addMipsInstruction("add " + regResult + ", " + reg1 + ", " + reg2); // Integer add
+    public void mipsAdd(String reg1, String reg2, String regResult) {
+        System.out.println("mipsAdd called with reg1=" + reg1 + ", reg2=" + reg2 + ", regResult=" + regResult);
+
+        if (isRegister(reg1) && isRegister(reg2)) {
+            // Case 1: Both operands are registers
+            addMipsInstruction("add " + regResult + ", " + reg1 + ", " + reg2); // Integer addition
+        } else if (isInteger(reg2)) {
+            // Case 2: reg2 is an immediate value, so use addi
+            addMipsInstruction("addi " + regResult + ", " + reg1 + ", " + reg2); // Integer addition with immediate
         } else {
-            // Use add.s for floating-point addition
-            addMipsInstruction("add.s " + regResult + ", " + reg1 + ", " + reg2); // Floating-point add
+            System.out.println("Invalid operands for mipsAdd: reg1=" + reg1 + ", reg2=" + reg2);
         }
     }
 
 
-    private void mipsSub(String reg1, String reg2, String regResult) {
-        // Check if reg2 is an immediate value (constant)
-        if (isIntegerOperation(reg1, reg2) && isImmediateValue(reg2)) {
-            // Use subi when reg2 is an immediate value (constant)
-            addMipsInstruction("subi " + regResult + ", " + reg1 + ", " + reg2); // Integer sub with immediate
-        } else if (isIntegerOperation(reg1, reg2)) {
-            // Use sub when both operands are registers (integer sub)
-            addMipsInstruction("sub " + regResult + ", " + reg1 + ", " + reg2); // Integer sub
+    public void mipsSub(String reg1, String reg2, String regResult) {
+        if (isRegister(reg1) && isRegister(reg2)) {
+            // Case 1: Both operands are registers (integers)
+            addMipsInstruction("sub " + regResult + ", " + reg1 + ", " + reg2); // Integer subtraction
+        } else if (isInteger(reg2)) {
+            // Case 2: reg2 is an immediate value, so use subi
+            addMipsInstruction("subi " + regResult + ", " + reg1 + ", " + reg2); // Integer subtraction with immediate
         } else {
-            // Use sub.s for floating-point subtraction
-            addMipsInstruction("sub.s " + regResult + ", " + reg1 + ", " + reg2); // Floating-point sub
+            System.out.println("Invalid operands for mipsSub: reg1=" + reg1 + ", reg2=" + reg2);
+        }
+    }
+
+    public void mipsMul(String reg1, String reg2, String regResult) {
+        if (isRegister(reg1) && isRegister(reg2)) {
+            // Case 1: Both operands are registers (integers)
+            addMipsInstruction("mul " + regResult + ", " + reg1 + ", " + reg2); // Integer multiplication
+        } else if (isInteger(reg2)) {
+            // Case 2: reg2 is an immediate value, so use muli
+            addMipsInstruction("muli " + regResult + ", " + reg1 + ", " + reg2); // Integer multiplication with immediate
+        } else {
+            System.out.println("Invalid operands for mipsMul: reg1=" + reg1 + ", reg2=" + reg2);
         }
     }
 
 
-    private void mipsMul(String reg1, String reg2, String regResult) {
-        // Check if reg2 is an immediate value (constant)
-        if (isIntegerOperation(reg1, reg2) && isImmediateValue(reg2)) {
-            // Use muli when reg2 is an immediate value (constant)
-            addMipsInstruction("mul " + regResult + ", " + reg1 + ", " + reg2); // Integer mul with immediate
-        } else if (isIntegerOperation(reg1, reg2)) {
-            // Use mul when both operands are registers (integer mul)
-            addMipsInstruction("mul " + regResult + ", " + reg1 + ", " + reg2); // Integer mul
+    public void mipsDiv(String reg1, String reg2, String regResult) {
+        if(Integer.parseInt(reg2) == 0){
+            throw new ArithmeticException("Division by 0");
+        }
+
+        if (isRegister(reg1) && isRegister(reg2)) {
+            // Case 1: Both operands are registers (integers)
+            addMipsInstruction("div " + reg1 + ", " + reg2);  // Perform integer division
+            addMipsInstruction("mflo " + regResult); // Move result to regResult (quotient)
+        } else if (isInteger(reg2)) {
+            // Case 2: reg2 is an immediate value, so perform division with immediate
+            addMipsInstruction("div " + reg1 + ", " + reg2);  // Perform integer division
+            addMipsInstruction("mflo " + regResult); // Move result to regResult (quotient)
         } else {
-            // Use mul.s for floating-point multiplication
-            addMipsInstruction("mul.s " + regResult + ", " + reg1 + ", " + reg2); // Floating-point mul
+            System.out.println("Invalid operands for mipsDiv: reg1=" + reg1 + ", reg2=" + reg2);
         }
     }
 
-
-    private void mipsDiv(String reg1, String reg2, String regResult) {
-        // Check if reg2 is an immediate value (constant)
-        if (isIntegerOperation(reg1, reg2) && isImmediateValue(reg2)) {
-            // Use divi when reg2 is an immediate value (constant)
-            addMipsInstruction("div " + reg1 + ", " + reg2); // Integer div with immediate
-            addMipsInstruction("mflo " + regResult); // Move the result to regResult
-        } else if (isIntegerOperation(reg1, reg2)) {
-            // Use div when both operands are registers (integer div)
-            addMipsInstruction("div " + reg1 + ", " + reg2); // Integer div
-            addMipsInstruction("mflo " + regResult); // Move the result to regResult
-        } else {
-            // Use div.s for floating-point division
-            addMipsInstruction("div.s " + reg1 + ", " + reg2); // Floating-point div
-            addMipsInstruction("mov.s " + regResult + ", $f0"); // Move result to regResult
-        }
+    private boolean isRegister(String operand) {
+        return operand.startsWith("$"); // Check if the operand is a register (starts with '$')
     }
+
 
     private String resolveToRegister(String operand) {
         // Check if operand is an integer literal
@@ -461,6 +462,15 @@ public class MIPSGenerator {
     public boolean isInteger(String token) {
         try {
             Integer.parseInt(token);
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    private boolean isDouble(String operand) {
+        try {
+            Double.parseDouble(operand);
             return true;
         } catch (NumberFormatException e) {
             return false;
