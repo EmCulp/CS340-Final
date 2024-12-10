@@ -24,7 +24,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class SymbolTable {
-    private final Map<Integer, Entry> table; // Map to store variable names and their details
+    final Map<Integer, Entry> table; // Map to store variable names and their details
     private int nextId; // To keep track of the next available ID
     private Map<String, String> conditionRegisters;
     private Map<String, Token> tokens;
@@ -288,14 +288,17 @@ public class SymbolTable {
         return entry != null ? entry.getRegister() : null;
     }
 
-    public void updateRegister(String variableName, String register){
-        if(containsVariable(variableName)){
-            Entry var = (Entry) getValueById(getIdByName(variableName));
-            var.setRegister(register);
-        }else{
-            System.out.println("Error: Variable not found: " +variableName);
+    public void updateRegister(String variableName, String register) {
+        // Check if the variable exists in the table
+        Entry entry = getEntry(variableName);  // This will throw an exception if the variable is not found
+        if (entry != null) {
+            entry.setRegister(register);  // Assuming setRegister is properly defined in Entry class
+            System.out.println("Register " + register + " has been assigned to variable " + variableName);
+        } else {
+            throw new IllegalArgumentException("Variable " + variableName + " not found in symbol table.");
         }
     }
+
 
     public Map<Integer, Entry> getAllEntries(){
         return table;

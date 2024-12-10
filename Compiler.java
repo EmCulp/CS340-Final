@@ -800,16 +800,11 @@ public class Compiler {
             throw new IllegalArgumentException("Block tokens cannot be empty.");
         }
 
-        // Generate MIPS code once before the loop starts
-//        try {
-            mipsGenerator.generateWhileLoop(condition, blockTokens);
-            System.out.println("MIPS code for while loop generated successfully.");
-//        } catch (Exception e) {
-//            System.err.println("Error during MIPS generation: " + e.getMessage());
-//            throw e;
-//        }
+        // Generate MIPS code once before the loop starts (MIPS code will be printed only once)
+        mipsGenerator.generateWhileLoop(condition, blockTokens);
+        System.out.println("MIPS code for while loop generated successfully.");
 
-        // Logical execution of the loop
+        // Logical execution of the loop (this will continue until the condition is false)
         while (true) {
             System.out.println("\nRe-evaluating condition...");
 

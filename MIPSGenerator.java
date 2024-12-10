@@ -315,26 +315,26 @@ public class MIPSGenerator {
         return "0($sp)"; // For example, this could point to the stack location at the top of the stack
     }
 
-    public void generateAssignment(String assignment) {
-        // Split the assignment into the variable name and the expression
-        String variableName = assignment.split("=")[0].trim();
-        String expression = assignment.split("=")[1].trim();
-
-        // Evaluate the expression to get the result register
-        String resultRegister = evaluateExpression(expression);
-
-        // Get the register for the variable being assigned
-        String variableRegister = symbolTable.getRegisterForVariable(variableName);
-        if (variableRegister == null) {
-            throw new IllegalArgumentException("Variable '" + variableName + "' not found in SymbolTable.");
-        }
-
-        // Generate MIPS code to move the result into the variable's register
-        System.out.println("Generated MIPS: move " + variableRegister + ", " + resultRegister);
-
-        // Optionally add the MIPS instruction to your list/queue of instructions
-        addMipsInstruction("move " + variableRegister + ", " + resultRegister);
-    }
+//    public void generateAssignment(String assignment) {
+//        // Split the assignment into the variable name and the expression
+//        String variableName = assignment.split("=")[0].trim();
+//        String expression = assignment.split("=")[1].trim();
+//
+//        // Evaluate the expression to get the result register
+//        String resultRegister = evaluateExpression(expression);
+//
+//        // Get the register for the variable being assigned
+//        String variableRegister = symbolTable.getRegisterForVariable(variableName);
+//        if (variableRegister == null) {
+//            throw new IllegalArgumentException("Variable '" + variableName + "' not found in SymbolTable.");
+//        }
+//
+//        // Generate MIPS code to move the result into the variable's register
+//        System.out.println("Generated MIPS: move " + variableRegister + ", " + resultRegister);
+//
+//        // Optionally add the MIPS instruction to your list/queue of instructions
+//        addMipsInstruction("move " + variableRegister + ", " + resultRegister);
+//    }
 
 
     // Example evaluateExpression method (simplified)
@@ -698,8 +698,10 @@ public class MIPSGenerator {
         String operator = condition.split(" ")[1].trim(); // Condition operator (e.g., "<")
         String constant = condition.split(" ")[2].trim(); // Constant value (e.g., "5")
 
-        // Assign registers
-        String dataRegister = assignRegister(loopVar); // Register for loop variable
+        // Retrieve the register for the loop variable (e.g., "y")
+        String dataRegister = assignRegister(loopVar);
+
+        // Handle the constant as a value (assign to a new register if necessary)
         String constantRegister = assignRegister(constant); // Register for constant value
         String conditionRegister = assignRegisterForCondition(); // Register for condition result
 
@@ -729,17 +731,18 @@ public class MIPSGenerator {
                 throw new IllegalArgumentException("Unsupported operator: " + operator);
         }
 
-        // If condition is false, jump to the end of the loop
+        // If the condition is false, jump to the end of the loop
         addMipsInstruction("beq " + conditionRegister + ", $zero, " + endLabel);
 
         // Loop body
         for (String bodyToken : bodyTokens) {
             bodyToken = bodyToken.trim();
+
             if (bodyToken.contains("=")) {
-                // Assignment statement
+                // Assignment statement with an arithmetic expression
                 String[] statementParts = bodyToken.split("=");
                 String leftSide = statementParts[0].trim();
-                String rightSide = statementParts[1].trim();
+                String rightSide = statementParts[1].trim().replace(";", ""); // Remove semicolon
 
                 // Resolve the register for the left-hand side variable
                 String leftRegister = symbolTable.getRegisterForVariable(leftSide);
@@ -748,7 +751,7 @@ public class MIPSGenerator {
                 }
 
                 // Evaluate the right-hand side expression
-                String resultRegister = evaluateExpression(rightSide);
+                String resultRegister = evaluateExpression(rightSide); // Evaluate the arithmetic expression
 
                 // Store the result in the left-hand side variable's register
                 addMipsInstruction("move " + leftRegister + ", " + resultRegister);
@@ -761,10 +764,7 @@ public class MIPSGenerator {
             }
         }
 
-        // Increment the loop variable (e.g., y = y + 1)
-//    addMipsInstruction("addi " + dataRegister + ", " + dataRegister + ", 1");
-
-        // Store the updated value of the loop variable back to memory
+        // Store the updated value of the loop variable back to memory (if applicable)
         addMipsInstruction("sw " + dataRegister + ", " + loopVar);
 
         // Jump back to the start of the loop
@@ -774,35 +774,63 @@ public class MIPSGenerator {
         addMipsInstruction(endLabel + ":");
     }
 
-    public String getRegisterForVariableOrConstant(String variableOrConstant) {
-        if (isConstant(variableOrConstant)) {
-            // Handle constant (use assignRegister to load constant into a register)
-            return assignRegister(variableOrConstant);  // Pass constant directly to assignRegister
-        } else {
-            // Handle variable (use existing method to get register for variable)
-            return symbolTable.getRegisterForVariable(variableOrConstant);  // Use existing method to fetch register for variable
-        }
+    private void processVariableToken(String varToken) {
+        // This method can be used to handle cases where the token is a variable
+        // For now, let's just log it for clarity
+        addComment("Processing variable token: " + varToken);
     }
 
+    // Process an assignment statement like "y = y + 1;"
+    public void processAssignmentStatement(String bodyToken) {
+        String[] statementParts = bodyToken.split("=");
+        String leftSide = statementParts[0].trim();
+        String rightSide = statementParts[1].trim().replace(";", ""); // Remove semicolon
 
-    public void processToken(String token) {
-        // Example of how to process a token (e.g., 'y = y + 1')
-        if (token.matches("\\w+\\s*=\\s*.+")) {
-            String variableName = token.split("=")[0].trim(); // y
-            String expression = token.split("=")[1].trim();  // y + 1
-
-            // Evaluate the expression (e.g., 'y + 1')
-            String resultRegister = evaluateExpression(expression);  // Evaluates the expression to a register
-
-            // Get the register for the variable being assigned (y)
-            String variableRegister = symbolTable.getRegisterForVariable(variableName);
-            if (variableRegister == null) {
-                throw new IllegalArgumentException("Variable '" + variableName + "' not found in SymbolTable.");
-            }
-
-            // Generate MIPS code to assign the result to the variable (y)
-            addMipsInstruction("move " + variableRegister + ", " + resultRegister);
+        // Resolve the register for the left-hand side variable
+        String leftRegister = symbolTable.getRegisterForVariable(leftSide);
+        if (leftRegister == null) {
+            throw new IllegalStateException("Variable '" + leftSide + "' not found in symbol table");
         }
+
+        // Now we need to process the right-hand side of the equation (e.g., y + 1)
+        String resultRegister = null;
+
+        // Check if the right-hand side contains arithmetic operations
+        if (rightSide.contains("+")) {
+            String[] operands = rightSide.split("\\+");
+            String leftOperand = operands[0].trim();
+            String rightOperand = operands[1].trim();
+
+            // Call mipsAdd for addition
+            mipsAdd(leftOperand, rightOperand, leftRegister);
+        } else if (rightSide.contains("-")) {
+            String[] operands = rightSide.split("-");
+            String leftOperand = operands[0].trim();
+            String rightOperand = operands[1].trim();
+
+            // Call mipsSub for subtraction
+            mipsSub(leftOperand, rightOperand, leftRegister);
+        } else if (rightSide.contains("*")) {
+            String[] operands = rightSide.split("\\*");
+            String leftOperand = operands[0].trim();
+            String rightOperand = operands[1].trim();
+
+            // Call mipsMul for multiplication
+            mipsMul(leftOperand, rightOperand, leftRegister);
+        } else if (rightSide.contains("/")) {
+            String[] operands = rightSide.split("/");
+            String leftOperand = operands[0].trim();
+            String rightOperand = operands[1].trim();
+
+            // Call mipsDiv for division
+            mipsDiv(leftOperand, rightOperand, leftRegister);
+        } else {
+            // If there's no arithmetic operation, evaluate the right side normally
+            resultRegister = evaluateExpression(rightSide);
+        }
+
+        // Store the result in the left-hand side variable's register
+        addMipsInstruction("move " + leftRegister + ", " + resultRegister);
     }
 
 
@@ -1099,9 +1127,19 @@ public class MIPSGenerator {
             // Handle assignments and arithmetic expressions
             String variableName = bodyToken.split("=")[0].trim();
             String expression = bodyToken.split("=")[1].trim();
-            generateAssignment(expression);
 
-        } else if (bodyToken.startsWith("if")) {
+            // Evaluate the expression and get the result register
+            String resultRegister = evaluateExpression(expression);
+
+            // Resolve the variable's register
+            String variableRegister = resolveToRegister(variableName);
+
+            // Move the result from the evaluated expression to the variable's register
+            generateMove(variableRegister, resultRegister);  // Assuming this method generates a move instruction
+
+            // Optional: Update the symbol table with the new value (if necessary)
+//            symbolTable.updateVariable(variableName, variableRegister);
+        }else if (bodyToken.startsWith("if")) {
             // Handle if-else
             String condition = extractCondition(bodyToken);
             List<String> bodyTokens = extractBodyTokens(bodyToken);
@@ -1117,6 +1155,18 @@ public class MIPSGenerator {
             throw new IllegalArgumentException("Unrecognized body token: " + bodyToken);
         }
     }
+
+    public void generateMove(String destinationRegister, String sourceRegister) {
+        // Check if sourceRegister is a literal (immediate value)
+        if (sourceRegister.matches("-?\\d+")) {  // If it's a literal (integer)
+            // If the source is an immediate value, use the "li" instruction (load immediate)
+            System.out.println("li " + destinationRegister + ", " + sourceRegister);  // li destination, immediate
+        } else {
+            // If both are registers, use the "move" instruction
+            System.out.println("move " + destinationRegister + ", " + sourceRegister);  // move destination, source
+        }
+    }
+
 
     public String getRegisterForExpression(String value) {
         System.out.println("Getting register for expression: " + value);  // Debug print
@@ -1166,11 +1216,6 @@ public class MIPSGenerator {
         if (inMainMethod) {
             // If the variable should be in the main method, use the li instruction
             addMipsInstruction("li " + reg + ", " + value);  // Load immediate value to the register
-        } else {
-            // Otherwise, go to the data section and declare the variable there
-            addMipsInstruction(".data");
-            addMipsInstruction(variableName + ": .word " + value);  // Declare variable in the data section
-            addMipsInstruction(".text");  // Return to text section (code)
         }
     }
 
