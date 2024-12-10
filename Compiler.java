@@ -926,13 +926,14 @@ public class Compiler {
             System.out.println("Extracted elseTokens: " + Arrays.toString(elseTokens));
         }
 
-        // Print MIPS code for the 'if' block
-        mipsGenerator.addLabel(ifLabel);
-        mipsGenerator.addComment("If block start");
-        processBlock(ifTokens, 0, ifTokens.length - 1);
-
-        // Print MIPS code for the 'else' block
-        if (elseTokens.length > 0) {
+        // Execute the 'if' or 'else' block based on the condition result
+        if (conditionResult) {
+            System.out.println("Executing If block...");
+            mipsGenerator.addLabel(ifLabel);
+            mipsGenerator.addComment("If block start");
+            processBlock(ifTokens, 0, ifTokens.length - 1);
+        } else if (elseTokens.length > 0) {
+            System.out.println("Executing Else block...");
             mipsGenerator.addLabel(elseLabel);
             mipsGenerator.addComment("Else block start");
             processBlock(elseTokens, 0, elseTokens.length - 1);

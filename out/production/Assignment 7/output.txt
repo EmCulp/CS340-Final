@@ -11,6 +11,7 @@ Tokens (main): integer y ;
 Tokens (block): while ( y < 5 ) { y = y + 1 ; }
 Tokens (main): integer i ;
 Tokens (block): for ( i = 0 ; i < 5 ; i ++ ) { print ( i ) ; }
+
 Token IDs in Binary for Symbol Table:
 Token ID: 600 => Binary: 1001011000
 Token ID: 601 => Binary: 1001011001
