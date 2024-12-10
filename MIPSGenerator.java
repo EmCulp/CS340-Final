@@ -645,75 +645,81 @@ public class MIPSGenerator {
     // Generate MIPS code for a 'while' loop
     // Method to generate MIPS code for a while loop
     public void generateWhileLoop(String condition, List<String> bodyTokens) {
+        addMipsInstruction(" ");
         if (bodyTokens == null || bodyTokens.isEmpty()) {
             throw new IllegalArgumentException("Loop body tokens are empty.");
         }
 
-        // Extract the loop variable from the condition (e.g., "y < 5")
-        String loopVar = condition.split(" ")[0].trim();  // Loop variable (e.g., "y")
-        String loopVarRegister = assignRegister(loopVar);  // Register for loop variable (e.g., $t0)
-        symbolTable.addRegisterToVariable(loopVar, loopVarRegister);  // Add to symbol table
+        // Extract the loop variable and constant from the condition (e.g., "y < 5")
+        String loopVar = condition.split(" ")[0].trim(); // Loop variable (e.g., "y")
+        String operator = condition.split(" ")[1].trim(); // Condition operator (e.g., "<")
+        String constant = condition.split(" ")[2].trim(); // Constant value (e.g., "5")
 
-        String conditionRegister = assignRegisterForCondition();  // Register for condition result (e.g., $t5)
-        symbolTable.putConditionRegister(conditionRegister, condition);  // Add to symbol table
+        // Assign registers
+        String dataRegister = assignRegister(loopVar); // Register for loop variable
+        String constantRegister = assignRegister(constant); // Register for constant value
+        String conditionRegister = assignRegisterForCondition(); // Register for condition result
 
-        // Load loop variable (e.g., y) into a register (e.g., $t0) BEFORE the loop label
-        String dataRegister = assignRegister(loopVar);  // Dynamically assign register for loop variable
-        System.out.println("Data Register: " + dataRegister);  // Debugging line to see assigned register
-//        addMipsInstruction("lw " + dataRegister + ", " + loopVar);  // Load y into dataRegister
+        // Load the loop variable into a register
+//        addMipsInstruction("lw " + dataRegister + ", " + loopVar);
 
-        // Load constant (5) into a register dynamically
-        String constantRegister = assignRegister("5");  // Dynamically assign register for constant value
-        addMipsInstruction("li " + constantRegister + ", 5");  // Load immediate value 5 into constantRegister
+        // Load the constant into a register
+//        addMipsInstruction("li " + constantRegister + ", " + constant);
 
-        // Label for the start of the loop
-        addMipsInstruction("label_6:");
-        addComment("Check condition for " + loopVar);
+        // Start of the loop
+        String startLabel = "label_6";
+        String endLabel = "label_7";
+        addMipsInstruction(startLabel + ":");
 
-        // Compare loop variable with constant (e.g., y < 5)
-        addMipsInstruction("slt " + conditionRegister + ", " + dataRegister + ", " + constantRegister);  // Set conditionRegister if y < 5
+        // Condition check
+        addComment("Check condition for " + loopVar + " " + operator + " " + constant);
+        switch (operator) {
+            case "<":
+                addMipsInstruction("slt " + conditionRegister + ", " + dataRegister + ", " + constantRegister);
+                break;
+            case ">":
+                addMipsInstruction("slt " + conditionRegister + ", " + constantRegister + ", " + dataRegister);
+                break;
+            case "==":
+                addMipsInstruction("sub " + conditionRegister + ", " + dataRegister + ", " + constantRegister);
+                addMipsInstruction("beq " + conditionRegister + ", $zero, " + endLabel);
+                break;
+            case "!=":
+                addMipsInstruction("sub " + conditionRegister + ", " + dataRegister + ", " + constantRegister);
+                addMipsInstruction("bne " + conditionRegister + ", $zero, " + endLabel);
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported operator: " + operator);
+        }
 
-        // If the condition is false (y >= 5), jump to the end of the loop
-        addMipsInstruction("beq $zero, " + conditionRegister + ", label_7");  // Exit loop if condition is false
+        // If condition is false, jump to the end of the loop
+        addMipsInstruction("beq " + conditionRegister + ", $zero, " + endLabel);
 
-        // Process the body of the loop if the condition is true
-        StringBuilder statementBuilder = new StringBuilder();
+        // Loop body
         for (String bodyToken : bodyTokens) {
             bodyToken = bodyToken.trim();
-
-            // If the body token is an assignment (e.g., "y = 10")
             if (bodyToken.contains("=")) {
-                handleAssignmentStatement(bodyToken);  // Process assignment statement
-            }
-            // If the body token is increment (e.g., "y++")
-            else if (bodyToken.equals("++") || bodyToken.equals("--")) {
-                handleIncrementOrDecrement(bodyToken);  // Process increment/decrement
-            }
-            // If the body token is a semicolon (end of statement)
-            else if (bodyToken.equals(";")) {
-                String completeStatement = statementBuilder.toString().trim();
-                statementBuilder.setLength(0);  // Reset the statement builder
-                if (completeStatement.startsWith("print")) {
-                    handlePrintStatement(completeStatement);  // Handle print statement
-                } else {
-                    processBodyToken(completeStatement);  // Process other statements
-                }
+                handleAssignmentStatement(bodyToken);
+            } else if (bodyToken.equals("++") || bodyToken.equals("--")) {
+                handleIncrementOrDecrement(bodyToken);
+            } else if (bodyToken.startsWith("print")) {
+                handlePrintStatement(bodyToken);
             } else {
-                statementBuilder.append(bodyToken).append(" ");
+                processBodyToken(bodyToken);
             }
         }
 
         // Increment the loop variable (e.g., y = y + 1)
-        addMipsInstruction("addi " + dataRegister + ", " + dataRegister + ", 1");  // Increment y by 1
+        addMipsInstruction("addi " + dataRegister + ", " + dataRegister + ", 1");
 
         // Store the updated value of the loop variable back to memory
-        addMipsInstruction("sw " + dataRegister + ", " + loopVar);  // Store the updated value of y
+        addMipsInstruction("sw " + dataRegister + ", " + loopVar);
 
-        // Jump back to the start of the loop to check the condition again
-        addMipsInstruction("j label_6");
+        // Jump back to the start of the loop
+        addMipsInstruction("j " + startLabel);
 
-        // Label for the end of the loop
-        addMipsInstruction("label_7:");
+        // End of the loop
+        addMipsInstruction(endLabel + ":");
     }
 
 
@@ -796,13 +802,28 @@ public class MIPSGenerator {
 
 
     public String assignRegister(String variable) {
-        // Check if a register already exists for the variable in the symbol table
+        // Check if the variable is a number or an immediate constant (this includes literal values)
+        boolean isConstant = isConstant(variable); // Helper method to check if the variable is a constant value
+
+        // If the variable is constant, we handle it differently
+        if (isConstant) {
+            // Assign register and load immediate value (constant)
+            String register = availableRegisters.poll();  // Get and remove the first available register
+            if (register == null) {
+                throw new RuntimeException("No available registers for constant: " + variable);
+            }
+
+            addMipsInstruction("li " + register + ", " + variable);  // Load immediate value into register
+            return register;
+        }
+
+        // For regular variables, check if a register already exists
         String register = symbolTable.getRegister(variable);  // Retrieve register if it exists
         if (register != null) {
             return register;  // Return the existing register
         }
 
-        // Determine whether the variable is stored in the data section
+        // Determine if the variable is stored in the data section
         boolean isInDataSection = isVariableInDataSection(variable);
         register = availableRegisters.poll();  // Get and remove the first available register
         if (register == null) {
@@ -812,16 +833,25 @@ public class MIPSGenerator {
         // Add the register to the symbol table
         symbolTable.addRegisterToVariable(variable, register);
 
-        System.out.println("Data Section: " +isInDataSection);
+        // If the variable is in the data section, load its value from memory
         if (isInDataSection) {
-            // Load the variable's value from memory
             addMipsInstruction("lw " + register + ", " + variable);  // Load word for data section variable
         } else {
-            // Assume it's an immediate value or literal
+            // Otherwise, assume it's an immediate value
             addMipsInstruction("li " + register + ", " + variable);  // Load immediate value
         }
 
         return register;
+    }
+
+    // Helper method to check if a variable is a constant (numeric value)
+    private boolean isConstant(String variable) {
+        try {
+            Integer.parseInt(variable);  // Try to parse the variable as an integer
+            return true;  // It's a constant if it parses successfully
+        } catch (NumberFormatException e) {
+            return false;  // Not a constant if it throws an exception
+        }
     }
 
 
