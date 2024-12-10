@@ -309,6 +309,16 @@ public class SymbolTable {
         return tokens.values();
     }
 
+    public boolean isVariableInDataSection(String variableName) {
+        for (Entry entry : table.values()) {
+            if (entry.getName().equals(variableName) && "data".equalsIgnoreCase(entry.getScope())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+
     /**********************************************************
      * METHOD: display()                                    *
      * DESCRIPTION:                                            *

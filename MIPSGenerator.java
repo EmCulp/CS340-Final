@@ -66,6 +66,11 @@ public class MIPSGenerator {
         }
     }
 
+    public boolean isVariableInDataSection(String variableName) {
+        return dataSection.containsKey(variableName);
+    }
+
+
     //want to push one thing to the stack
     public void pushToStack(String register){
         addMipsInstruction("addi $sp, $sp, -4");
@@ -637,65 +642,71 @@ public class MIPSGenerator {
     // Generate MIPS code for a 'while' loop
     // Method to generate MIPS code for a while loop
     public void generateWhileLoop(String condition, List<String> bodyTokens) {
-        // Debugging: Print the body tokens before processing them
-        // System.out.println("Block tokens: " + bodyTokens);
-
-        // Ensure that bodyTokens is not empty
         if (bodyTokens == null || bodyTokens.isEmpty()) {
             throw new IllegalArgumentException("Loop body tokens are empty.");
         }
 
-        // Extract loop variable and assign a register for the condition
-        String loopVar = condition.split(" ")[0].trim();  // e.g., "y"
-        String register = assignRegister(loopVar);  // e.g., $t0
-        symbolTable.addRegisterToVariable(loopVar, register);  // Add to symbol table
+        // Extract the loop variable from the condition (e.g., "y < 5")
+        String loopVar = condition.split(" ")[0].trim();  // Loop variable (e.g., "y")
+        String loopVarRegister = assignRegister(loopVar);  // Register for loop variable (e.g., $t0)
+        symbolTable.addRegisterToVariable(loopVar, loopVarRegister);  // Add to symbol table
 
-        // Dynamically assign a register for storing the condition result
-        String conditionRegister = assignRegisterForCondition();  // e.g., $t5
+        String conditionRegister = assignRegisterForCondition();  // Register for condition result (e.g., $t5)
+        symbolTable.putConditionRegister(conditionRegister, condition);  // Add to symbol table
 
-        // Add the condition register to the symbol table
-        symbolTable.putConditionRegister(conditionRegister, condition);
+        // Load loop variable (e.g., y) into a register (e.g., $t0) BEFORE the loop label
+        String dataRegister = assignRegister(loopVar);  // Dynamically assign register for loop variable
+        System.out.println("Data Register: " + dataRegister);  // Debugging line to see assigned register
+//        addMipsInstruction("lw " + dataRegister + ", " + loopVar);  // Load y into dataRegister
+
+        // Load constant (5) into a register dynamically
+        String constantRegister = assignRegister("5");  // Dynamically assign register for constant value
+        addMipsInstruction("li " + constantRegister + ", 5");  // Load immediate value 5 into constantRegister
 
         // Label for the start of the loop
-        addMipsInstruction("label_6:");  // Label for start of the loop
-
-        // Check the condition
+        addMipsInstruction("label_6:");
         addComment("Check condition for " + loopVar);
 
-        // Generate MIPS for the condition and store the result in the condition register
-        generateWhileLoopCondition(condition, conditionRegister);  // Use the condition register here
+        // Compare loop variable with constant (e.g., y < 5)
+        addMipsInstruction("slt " + conditionRegister + ", " + dataRegister + ", " + constantRegister);  // Set conditionRegister if y < 5
 
-        // Now the result of the condition should be stored in `conditionRegister`
-        addMipsInstruction("beq $zero, " + conditionRegister + ", label_7");  // Exit if false
+        // If the condition is false (y >= 5), jump to the end of the loop
+        addMipsInstruction("beq $zero, " + conditionRegister + ", label_7");  // Exit loop if condition is false
 
         // Process the body of the loop if the condition is true
         StringBuilder statementBuilder = new StringBuilder();
         for (String bodyToken : bodyTokens) {
             bodyToken = bodyToken.trim();
 
-            // If the body token contains an assignment (e.g., "i = 10" or "i++")
+            // If the body token is an assignment (e.g., "y = 10")
             if (bodyToken.contains("=")) {
-                handleAssignmentStatement(bodyToken);
+                handleAssignmentStatement(bodyToken);  // Process assignment statement
             }
-            // If the body token is an increment or decrement (e.g., "i++" or "i--")
+            // If the body token is increment (e.g., "y++")
             else if (bodyToken.equals("++") || bodyToken.equals("--")) {
-                handleIncrementOrDecrement(bodyToken);
+                handleIncrementOrDecrement(bodyToken);  // Process increment/decrement
             }
-            // If the body token is a semicolon or needs special handling
+            // If the body token is a semicolon (end of statement)
             else if (bodyToken.equals(";")) {
                 String completeStatement = statementBuilder.toString().trim();
-                statementBuilder.setLength(0);
+                statementBuilder.setLength(0);  // Reset the statement builder
                 if (completeStatement.startsWith("print")) {
-                    handlePrintStatement(completeStatement);  // Print statement
+                    handlePrintStatement(completeStatement);  // Handle print statement
                 } else {
-                    processBodyToken(completeStatement);  // Process other tokens
+                    processBodyToken(completeStatement);  // Process other statements
                 }
             } else {
                 statementBuilder.append(bodyToken).append(" ");
             }
         }
 
-        // Jump back to the start of the loop
+        // Increment the loop variable (e.g., y = y + 1)
+        addMipsInstruction("addi " + dataRegister + ", " + dataRegister + ", 1");  // Increment y by 1
+
+        // Store the updated value of the loop variable back to memory
+        addMipsInstruction("sw " + dataRegister + ", " + loopVar);  // Store the updated value of y
+
+        // Jump back to the start of the loop to check the condition again
         addMipsInstruction("j label_6");
 
         // Label for the end of the loop
@@ -782,20 +793,34 @@ public class MIPSGenerator {
 
 
     public String assignRegister(String variable) {
-        if (availableRegisters.isEmpty()) {
+        // Check if a register already exists for the variable in the symbol table
+        String register = symbolTable.getRegister(variable);  // Retrieve register if it exists
+        if (register != null) {
+            return register;  // Return the existing register
+        }
+
+        // Determine whether the variable is stored in the data section
+        boolean isInDataSection = isVariableInDataSection(variable);
+        register = availableRegisters.poll();  // Get and remove the first available register
+        if (register == null) {
             throw new RuntimeException("No available registers for variable: " + variable);
         }
 
-        // Assign the next available register
-        String register = availableRegisters.poll();
-
-        // Add the register to the variable in the symbol table
+        // Add the register to the symbol table
         symbolTable.addRegisterToVariable(variable, register);
 
-        // Initialize the variable in the register (e.g., load its initial value)
-        addMipsInstruction("li " + register + ", 0"); // Default initialization
+        System.out.println("Data Section: " +isInDataSection);
+        if (isInDataSection) {
+            // Load the variable's value from memory
+            addMipsInstruction("lw " + register + ", " + variable);  // Load word for data section variable
+        } else {
+            // Assume it's an immediate value or literal
+            addMipsInstruction("li " + register + ", " + variable);  // Load immediate value
+        }
+
         return register;
     }
+
 
 
     // Method to generate the MIPS code for printing an integer (value in $a0)
@@ -867,13 +892,14 @@ public class MIPSGenerator {
 
     // Method to handle the entire for loop with the print and increment functionality
     public void generateForLoop(String initialization, String condition, String increment, List<String> bodyTokens) {
+        addMipsInstruction(" ");
         String loopVar = initialization.split("=")[0].trim();
         String initialValue = initialization.split("=")[1].trim();
         String register = assignRegister(loopVar);
 
         symbolTable.addRegisterToVariable(loopVar, register);
 
-        addMipsInstruction("li " + register + ", " + initialValue);
+//        addMipsInstruction("li " + register + ", " + initialValue);
         addMipsInstruction("label_8:");
 
         // Condition check
@@ -945,7 +971,7 @@ public class MIPSGenerator {
             String[] parts = bodyToken.split("\\s+");
             String variableName = parts[1];
             String value = parts[3];
-            declareVariable(variableName, value);
+            declareVariable(variableName, value, false);
 
         } else if (bodyToken.matches("\\w+\\s*=\\s*.+")) {
             // Handle assignments and arithmetic expressions
@@ -1012,11 +1038,20 @@ public class MIPSGenerator {
         return Arrays.asList(body.split(";")); // Assuming each statement in the body is separated by semicolons
     }
 
-    public void declareVariable(String variableName, String value){
+    public void declareVariable(String variableName, String value, boolean inMainMethod) {
         String reg = symbolTable.getRegister(variableName);
 
-        addMipsInstruction("li " +reg+ ", " +value);
+        if (inMainMethod) {
+            // If the variable should be in the main method, use the li instruction
+            addMipsInstruction("li " + reg + ", " + value);  // Load immediate value to the register
+        } else {
+            // Otherwise, go to the data section and declare the variable there
+            addMipsInstruction(".data");
+            addMipsInstruction(variableName + ": .word " + value);  // Declare variable in the data section
+            addMipsInstruction(".text");  // Return to text section (code)
+        }
     }
+
 
 
     private String generateLabel() {
