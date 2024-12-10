@@ -201,7 +201,7 @@ public class Compiler {
 
         if(tokens[0].equals("if")){
             System.out.println("handleIfElse");
-            handleIfElse(tokens, id);
+            handleIfElse(tokens);
             return;
         }
 
@@ -867,7 +867,7 @@ public class Compiler {
      *             if there is an error evaluating the condition.
      **********************************************************/
 
-    public static void handleIfElse(String[] tokens, List<Integer> tokenIDs) throws Exception {
+    public static void handleIfElse(String[] tokens) throws Exception {
         System.out.println("Entered handleIfElse...");
 
         // Ensure the first token is 'if'
@@ -884,20 +884,6 @@ public class Compiler {
 
         // Extract tokens for the condition
         String[] conditionTokens = Arrays.copyOfRange(tokens, startCondition + 1, endCondition);
-
-        // Generate labels for the MIPS code (ensure labels are unique and only generated once)
-        String ifLabel = "IF_BLOCK";
-        String elseLabel = "ELSE_BLOCK";
-        String endLabel = "END_IF_ELSE";
-
-        // Print the generated MIPS code for the labels (to simulate printing the MIPS code)
-        System.out.println("MIPS Code Generated:");
-        System.out.println(ifLabel + ":");
-        mipsGenerator.addComment("If block start");
-        System.out.println(elseLabel + ":");
-        mipsGenerator.addComment("Else block start");
-        System.out.println(endLabel + ":");
-        mipsGenerator.addComment("End if-else block");
 
         // Evaluate the condition
         boolean conditionResult;
@@ -926,26 +912,20 @@ public class Compiler {
             System.out.println("Extracted elseTokens: " + Arrays.toString(elseTokens));
         }
 
-        // Print MIPS code during execution of the 'if' or 'else' block
-        if (conditionResult) {
+        if(conditionResult){
             System.out.println("Executing If block...");
-            mipsGenerator.addComment("If block execution");
-            processBlock(ifTokens, 0, ifTokens.length - 1);
-
-            // Print MIPS code for if block execution
-            System.out.println("If block MIPS code executed");
-        } else if (elseTokens.length > 0) {
+            processBlock(ifTokens, 0, ifTokens.length-1);
+        }else if(elseTokens.length > 0){
             System.out.println("Executing Else block...");
-            mipsGenerator.addComment("Else block execution");
-            processBlock(elseTokens, 0, elseTokens.length - 1);
-
-            // Print MIPS code for else block execution
-            System.out.println("Else block MIPS code executed");
+            processBlock(elseTokens, 0, elseTokens.length-1);
         }
 
-        // Add the end label
-        mipsGenerator.addLabel(endLabel);
-        System.out.println("End of if-else block MIPS code execution");
+        // Always call generateIfElse method to generate MIPS code for both 'if' and 'else' blocks
+        System.out.println("Generating MIPS code...");
+        mipsGenerator.addComment("If-Else Block");
+
+        // Call the generateIfElse method for both true and false conditions
+        mipsGenerator.generateIfElse(String.join(" ", conditionTokens), Arrays.asList(ifTokens), Arrays.asList(elseTokens));
 
         // Print the accumulated MIPS code once after all processing
         System.out.println("MIPS Code Generation Complete");

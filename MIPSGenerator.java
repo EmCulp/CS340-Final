@@ -338,7 +338,7 @@ public class MIPSGenerator {
 
 
     // Example evaluateExpression method (simplified)
-    public String evaluateExpression(String expression) {
+    public String evaluateExpression(String expression, String endLabel) {
         // Split the expression into operands and operator (assuming basic "operand operator operand" format)
         String[] tokens = expression.split(" ");
         if (tokens.length != 3) {
@@ -357,23 +357,50 @@ public class MIPSGenerator {
         // Perform the operation based on the operator
         switch (operator) {
             case "+":
-                mipsAdd(reg1, reg2, regResult);  // Perform addition and store the result in regResult
+                mipsAdd(reg1, reg2, regResult);
                 break;
             case "-":
-                mipsSub(reg1, reg2, regResult);  // Perform subtraction
+                mipsSub(reg1, reg2, regResult);
                 break;
             case "*":
-                mipsMul(reg1, reg2, regResult);  // Perform multiplication
+                mipsMul(reg1, reg2, regResult);
                 break;
             case "/":
-                mipsDiv(reg1, reg2, regResult);  // Perform division
+                mipsDiv(reg1, reg2, regResult);
+                break;
+            case "<":
+                addMipsInstruction("slt " + regResult + ", " + reg1 + ", " + reg2); // Set less than
+                addMipsInstruction("beq " + regResult + ", $zero, " + endLabel); // Branch if equal
+                break;
+            case ">":
+                addMipsInstruction("slt " + regResult + ", " + reg2 + ", " + reg1); // Set less than (reverse the operands)
+                addMipsInstruction("beq " + regResult + ", $zero, " + endLabel); // Branch if equal
+                break;
+            case "==":
+                addMipsInstruction("sub " + regResult + ", " + reg1 + ", " + reg2);
+                addMipsInstruction("beq " + regResult + ", $zero, " + endLabel); // Branch if equal
+                break;
+            case "!=":
+                addMipsInstruction("sub " + regResult + ", " + reg1 + ", " + reg2);
+                addMipsInstruction("bne " + regResult + ", $zero, " + endLabel); // Branch if not equal
+                break;
+            case "<=":
+                // For <=, check if greater than and jump if true
+                addMipsInstruction("slt " + regResult + ", " + reg2 + ", " + reg1); // Set less than
+                addMipsInstruction("beq " + regResult + ", $zero, " + endLabel); // Jump if greater (i.e., less than or equal)
+                break;
+            case ">=":
+                // For >=, check if less than and jump if true
+                addMipsInstruction("slt " + regResult + ", " + reg1 + ", " + reg2); // Set less than
+                addMipsInstruction("beq " + regResult + ", $zero, " + endLabel); // Jump if less (i.e., greater than or equal)
                 break;
             default:
                 throw new IllegalArgumentException("Unsupported operator: " + operator);
         }
+        mipsCode.add(endLabel + ":");
 
-        // Return the register containing the result
-        return regResult;
+        // Join the list into a single string with line breaks
+        return String.join("\n", mipsCode);
     }
 
     public void mipsAdd(String reg1, String reg2, String regResult) {
@@ -487,75 +514,6 @@ public class MIPSGenerator {
     }
 
 
-    private boolean isIntegerOperation(String reg1, String reg2) {
-        // Add logic to check if both operands are integers (this might involve checking register contents or types)
-        return true;  // Assuming for simplicity that the operands are integers
-    }
-
-
-
-    public String generateConditional(String operator, Object operand1, Object operand2, String labelTrue, String labelFalse) {
-        String reg1 = allocateTempRegister();  // Load operand1
-        String reg2 = allocateTempRegister();  // Load operand2
-
-        loadRegister(reg1, operand1);  // Load operand1 value
-        loadRegister(reg2, operand2);  // Load operand2 value
-
-        // Conditional checks for boolean or numeric operands
-        if (operand1 instanceof Boolean || operand2 instanceof Boolean) {
-            // Handle boolean conditionals (true/false)
-            switch (operator) {
-                case "==":
-                    addMipsInstruction("beq " + reg1 + ", " + reg2 + ", " +labelTrue);
-//                    addMipsInstruction("j " +labelFalse);
-                    break;
-                case "!=":
-                    addMipsInstruction("bne " + reg1 + ", " + reg2 + ", " +labelTrue);
-//                    addMipsInstruction("j " +labelFalse);
-                    break;
-                default:
-                    throw new IllegalArgumentException("Unsupported boolean operator: " + operator);
-            }
-        } else if (operand1 instanceof Integer || operand1 instanceof Double) {
-            // Handle integer or floating-point conditionals
-            switch (operator) {
-                case "==":
-                    addMipsInstruction("beq " + reg1 + ", " + reg2 + ", " +labelTrue);
-//                    addMipsInstruction("j " +labelFalse);
-                    break;
-                case "!=":
-                    addMipsInstruction("bne " + reg1 + ", " + reg2 + ", " +labelTrue);
-//                    addMipsInstruction("j " +labelFalse);
-                    break;
-                case "<":
-                    addMipsInstruction("blt " + reg1 + ", " + reg2 + ", " +labelTrue);
-//                    addMipsInstruction("j " +labelFalse);
-                    break;
-                case ">":
-                    addMipsInstruction("bgt " + reg1 + ", " + reg2 + ", " +labelTrue);
-//                    addMipsInstruction("j " +labelFalse);
-                    break;
-                case "<=":
-                    addMipsInstruction("ble " + reg1 + ", " + reg2 + ", " +labelTrue);
-//                    addMipsInstruction("j " +labelFalse);
-                    break;
-                case ">=":
-                    addMipsInstruction("bge " + reg1 + ", " + reg2 + ", " +labelTrue);
-//                    addMipsInstruction("j " +labelFalse);
-                    break;
-                default:
-                    throw new IllegalArgumentException("Unsupported comparison operator: " + operator);
-            }
-        } else {
-            throw new IllegalArgumentException("Invalid operand types for conditional comparison");
-        }
-
-        freeRegister(reg1);
-        freeRegister(reg2);
-
-        return mipsCode.toString();
-    }
-
     public String convertConditionToMips(String condition, String label, SymbolTable symbolTable) {
         // Split the condition into parts (e.g., "x < 5" -> ["x", "<", "5"])
         String[] conditionParts = condition.split(" ");
@@ -609,30 +567,129 @@ public class MIPSGenerator {
     }
 
 
-    public void generateIfElse(String condition, List<String> bodyTokens) {
+    public void generateIfElse(String condition, List<String> ifBodyTokens, List<String> elseBodyTokens) {
         addMipsInstruction(" ");
-        String labelTrue = generateLabel();
-        String labelFalse = generateLabel();
-        String labelEnd = generateLabel();
+        // Generate labels for the if-else structure
+        String ifLabel = "IF_BLOCK";
+        String elseLabel = "ELSE_BLOCK";
+        String endLabel = "END_IF_ELSE";
 
-        // Get the register associated with the condition (either variable or constant)
-        String conditionRegister = evaluateExpression(condition);  // Determine if it's variable or constant and get the register
+        // Start generating MIPS code
+        addMipsInstruction("# If-Else Structure");
 
-        addMipsInstruction("bnez " + conditionRegister + ", " + labelTrue);  // Branch if condition is true
-        addMipsInstruction("j " + labelFalse);  // Else part
-        addMipsInstruction(labelTrue + ":");
+        // Evaluate the condition expression
+        String conditionRegister = evaluateExpression(condition, endLabel);  // Get the condition register
 
-        // Process body of the if part
-        for (String bodyToken : bodyTokens) {
-            processBodyToken(bodyToken);
+        // Process the conditional logic based on operator (e.g., <, >, ==, !=)
+//        String operator = extractOperatorFromCondition(condition); // Extract operator from the condition
+//        String dataRegister = getDataRegisterForCondition(condition); // Get data register for condition evaluation
+//        String constantRegister = getConstantRegisterForCondition(condition); // Get constant register (if applicable)
+
+
+        // If the condition is false, jump to the else block
+//        addMipsInstruction("beq " + conditionRegister + ", $zero, " + elseLabel);
+
+        // If block
+        addMipsInstruction(ifLabel + ":");
+        processBodyTokens(ifBodyTokens); // Generate MIPS for if block
+
+        // Jump to the end label after if block
+        addMipsInstruction("j " + endLabel);
+
+        // Else block (only if else body tokens are not empty)
+        if (!elseBodyTokens.isEmpty()) {
+            addMipsInstruction(elseLabel + ":");
+            processBodyTokens(elseBodyTokens); // Generate MIPS for else block
         }
 
-        addMipsInstruction("j " + labelEnd);  // Jump to end
-        addMipsInstruction(labelFalse + ":");
-
-        // Handle else part (if any)
-        addMipsInstruction(labelEnd + ":");
+        // End of if-else structure
+        addMipsInstruction(endLabel + ":");
     }
+
+    // Helper method to extract the operator from the condition
+    private String extractOperatorFromCondition(String condition) {
+        // Simple example, could be extended based on your actual condition format
+        if (condition.contains("<")) {
+            return "<";
+        } else if (condition.contains(">")) {
+            return ">";
+        } else if (condition.contains("==")) {
+            return "==";
+        } else if (condition.contains("!=")) {
+            return "!=";
+        } else {
+            throw new IllegalArgumentException("Invalid operator in condition");
+        }
+    }
+
+    // Helper methods to extract data and constant registers (dummy implementations, replace with actual logic)
+    private String getDataRegisterForCondition(String condition) {
+        // Logic to return the data register associated with the condition (for now, dummy return)
+        return "$t0";  // Example, replace with actual register logic
+    }
+
+    private String getConstantRegisterForCondition(String condition) {
+        // Logic to return the constant register (for now, dummy return)
+        return "$t1";  // Example, replace with actual register logic
+    }
+
+    public void processBodyTokens(List<String> bodyTokens) {
+        for (String token : bodyTokens) {
+            if (token.startsWith("print")) {
+                // Example: print("Hello")
+                String message = extractPrintMessage(token);
+                addMipsInstruction("# Printing message: " + message);
+                generatePrint(message);
+            } else if (token.contains("=")) {
+                // Example: x = 10
+                String[] parts = token.split("=");
+                String variable = parts[0].trim();
+                String value = parts[1].trim();
+                addMipsInstruction("# Assigning value to variable: " + variable);
+                generateAssignmentInstruction(variable, value);
+            } else if (token.startsWith("if")) {
+                // Nested if-else handling
+                String condition = extractCondition(token);
+                List<String> nestedIfBodyTokens = extractIfBodyTokens(token);
+                List<String> nestedElseBodyTokens = extractElseBodyTokens(token);
+                generateIfElse(condition, nestedIfBodyTokens, nestedElseBodyTokens);
+            } else {
+                addMipsInstruction("# Unknown token: " + token);
+            }
+        }
+    }
+
+    private String extractPrintMessage(String token) {
+        // Assuming format: print("message")
+        int startIndex = token.indexOf("\"") + 1;
+        int endIndex = token.lastIndexOf("\"");
+        return token.substring(startIndex, endIndex);
+    }
+
+    private void generateAssignmentInstruction(String variable, String value) {
+        // Assuming integer assignment
+        addMipsInstruction("li $t0, " + value); // Load immediate value into a temporary register
+        addMipsInstruction("sw $t0, " + variable); // Store the value into the variable's memory address
+    }
+
+    private List<String> extractIfBodyTokens(String token) {
+        // Extracts tokens between `{` and `}` of the `if` block
+        int start = token.indexOf("{") + 1;
+        int end = token.indexOf("}");
+        String body = token.substring(start, end).trim();
+        return Arrays.asList(body.split(";")); // Assuming semicolon-separated statements
+    }
+
+    private List<String> extractElseBodyTokens(String token) {
+        // Extracts tokens for the `else` block, if it exists
+        int elseIndex = token.indexOf("else");
+        if (elseIndex == -1) return new ArrayList<>();
+        int start = token.indexOf("{", elseIndex) + 1;
+        int end = token.indexOf("}", elseIndex);
+        String body = token.substring(start, end).trim();
+        return Arrays.asList(body.split(";")); // Assuming semicolon-separated statements
+    }
+
 
     public void generateWhileLoopCondition(String condition, String conditionRegister) {
         if(condition == null || condition.trim().isEmpty()){
@@ -727,9 +784,20 @@ public class MIPSGenerator {
                 addMipsInstruction("sub " + conditionRegister + ", " + dataRegister + ", " + constantRegister);
                 addMipsInstruction("bne " + conditionRegister + ", $zero, " + endLabel);
                 break;
+            case "<=":
+                // For <=, check if the value is greater than the constant and jump if true
+                addMipsInstruction("slt " + conditionRegister + ", " + constantRegister + ", " + dataRegister); // less than
+                addMipsInstruction("beq " + conditionRegister + ", $zero, " + endLabel); // if true, jump to end (greater than)
+                break;
+            case ">=":
+                // For >=, check if the value is less than the constant and jump if true
+                addMipsInstruction("slt " + conditionRegister + ", " + dataRegister + ", " + constantRegister); // less than
+                addMipsInstruction("beq " + conditionRegister + ", $zero, " + endLabel); // if true, jump to end (less than)
+                break;
             default:
                 throw new IllegalArgumentException("Unsupported operator: " + operator);
         }
+
 
         // If the condition is false, jump to the end of the loop
         addMipsInstruction("beq " + conditionRegister + ", $zero, " + endLabel);
@@ -751,7 +819,7 @@ public class MIPSGenerator {
                 }
 
                 // Evaluate the right-hand side expression
-                String resultRegister = evaluateExpression(rightSide); // Evaluate the arithmetic expression
+                String resultRegister = evaluateExpression(rightSide, endLabel); // Evaluate the arithmetic expression
 
                 // Store the result in the left-hand side variable's register
                 addMipsInstruction("move " + leftRegister + ", " + resultRegister);
@@ -826,7 +894,7 @@ public class MIPSGenerator {
             mipsDiv(leftOperand, rightOperand, leftRegister);
         } else {
             // If there's no arithmetic operation, evaluate the right side normally
-            resultRegister = evaluateExpression(rightSide);
+            resultRegister = evaluateExpression(rightSide, generateLabel());
         }
 
         // Store the result in the left-hand side variable's register
@@ -1129,7 +1197,7 @@ public class MIPSGenerator {
             String expression = bodyToken.split("=")[1].trim();
 
             // Evaluate the expression and get the result register
-            String resultRegister = evaluateExpression(expression);
+            String resultRegister = evaluateExpression(expression, generateLabel());
 
             // Resolve the variable's register
             String variableRegister = resolveToRegister(variableName);
@@ -1142,10 +1210,13 @@ public class MIPSGenerator {
         }else if (bodyToken.startsWith("if")) {
             // Handle if-else
             String condition = extractCondition(bodyToken);
-            List<String> bodyTokens = extractBodyTokens(bodyToken);
-            generateIfElse(condition, bodyTokens);
+            List<String> ifTokens = extractIfTokens(bodyToken); // Extract tokens for the if block
+            List<String> elseTokens = extractElseTokens(bodyToken); // Extract tokens for the else block (if exists)
 
-        } else if (bodyToken.startsWith("while")) {
+            // Call the method with condition, ifTokens, and elseTokens
+            generateIfElse(condition, ifTokens, elseTokens);
+        }
+        else if (bodyToken.startsWith("while")) {
             // Handle while loops
             String condition = extractCondition(bodyToken);
             List<String> bodyTokens = extractBodyTokens(bodyToken);
@@ -1198,6 +1269,31 @@ public class MIPSGenerator {
         }
         return token.substring(start, end).trim();
     }
+
+    private List<String> extractIfTokens(String bodyToken) {
+        // Extract tokens for the if block
+        // Assumes the format "if(condition) { ... } else { ... }"
+        int startIndex = bodyToken.indexOf("{") + 1;
+        int elseIndex = bodyToken.indexOf("else");
+        if (elseIndex == -1) {
+            elseIndex = bodyToken.lastIndexOf("}");
+        }
+        String ifBody = bodyToken.substring(startIndex, elseIndex).trim();
+        return Arrays.asList(ifBody.split(";")); // Split into individual statements
+    }
+
+    private List<String> extractElseTokens(String bodyToken) {
+        // Extract tokens for the else block (if it exists)
+        int elseIndex = bodyToken.indexOf("else {");
+        if (elseIndex == -1) {
+            return new ArrayList<>(); // No else block
+        }
+        int startIndex = elseIndex + "else {".length();
+        int endIndex = bodyToken.lastIndexOf("}");
+        String elseBody = bodyToken.substring(startIndex, endIndex).trim();
+        return Arrays.asList(elseBody.split(";")); // Split into individual statements
+    }
+
 
     // Extract body (statements inside curly braces) from an 'if' or 'while' statement
     private List<String> extractBodyTokens(String token) {
