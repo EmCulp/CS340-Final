@@ -41,14 +41,43 @@ public class MIPSGenerator {
     }
 
     public void addToDataSection(String variableName, String initValue, String dataType) {
-        // Prevent duplicates
+        // Check if the variable is already in the data section
         if (!dataSection.containsKey(variableName)) {
+            // If initValue contains an '=' sign, it's an assignment (e.g., "x = 5")
+            if (initValue.contains("=")) {
+                // Extract the value after '='
+                String[] parts = initValue.split("=");
+                initValue = parts[1].trim().replace(";", ""); // Remove any trailing semicolon
+            }
+
+            // Handle different data types and provide default initialization if necessary
+            if (initValue.isEmpty()) {
+                switch (dataType.toLowerCase()) {
+                    case "int":
+                        initValue = "0"; // Default to 0 for int
+                        break;
+                    case "string":
+                        initValue = "\"\""; // Default to empty string for string
+                        break;
+                    case "boolean":
+                        initValue = "0"; // Default to false (0) for boolean
+                        break;
+                    case "double":
+                        initValue = "0.0"; // Default to 0.0 for double
+                        break;
+                    default:
+                        System.out.println("Unknown data type: " + dataType);
+                        return;
+                }
+            }
+
+            // Now add the variable to the data section based on its type
             switch (dataType.toLowerCase()) {
                 case "int":
                     dataSection.put(variableName, variableName + ": .word " + initValue);
                     break;
                 case "string":
-                    dataSection.put(variableName, variableName + ": .asciiz \"" + initValue + "\"");
+                    dataSection.put(variableName, variableName + ": .asciiz " + initValue);
                     break;
                 case "boolean":
                     int boolValue = Boolean.parseBoolean(initValue) ? 1 : 0;

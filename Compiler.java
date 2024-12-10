@@ -678,7 +678,7 @@ public class Compiler {
     //works with "integer a = 15;"
     // Assume `evaluator` is capable of handling expressions properly with parentheses
     public static void handleAssignment(String[] tokens) {
-        // Case 1: Handle "integer x = 5;" or "integer a = 2;"
+        // Case 1: Handle declarations with initialization like "integer x = 5;"
         if (tokens[0].equals("integer")) {
             String variableName = tokens[1]; // The variable on the left-hand side
             String valueToken = tokens[3]; // The value to assign (e.g., "5")
@@ -688,9 +688,12 @@ public class Compiler {
             // Check if the variable is already declared
             if (!symbolTable.containsVariable(variableName)) {
                 String allocatedRegister = mipsGenerator.allocateSavedRegister();
-                // Allocate space in the symbol table, but don't add to data section
+                // Allocate space in the symbol table, but don't add to data section yet
                 symbolTable.addEntry(variableName, "int", 0, scope, allocatedRegister);
                 System.out.println("Encountered new symbol " + variableName + " with id " + symbolTable.getIdByName(variableName));
+
+                // Add to data section with initialization
+                mipsGenerator.addToDataSection(variableName, valueToken, "int");
             }
 
             try {
@@ -699,7 +702,7 @@ public class Compiler {
                 // No need to store in memory, just update symbol table and work with registers
                 String reg = mipsGenerator.allocateTempRegister();
                 mipsGenerator.loadImmediate(reg, value); // Load the value into a temporary register
-                symbolTable.updateValue(variableName, value); // Update the variable's value in the symbol table (no memory write)
+                symbolTable.updateValue(variableName, value); // Update the variable's value in the symbol table
 
                 mipsGenerator.freeRegister(reg); // Free the register after use
 
@@ -726,6 +729,9 @@ public class Compiler {
                     String scope = isInsideControlStructure() ? "local" : "global";
                     symbolTable.addEntry(variableName, "int", 0, scope, register); // Declare it if not
                     System.out.println("Encountered new symbol " + variableName + " with id " + symbolTable.getIdByName(variableName));
+
+                    // Add to data section with default value
+                    mipsGenerator.addToDataSection(variableName, "0", "int"); // Default to 0 for uninitialized int
                 }
 
                 // Evaluate the expression to get the value to assign
@@ -741,10 +747,9 @@ public class Compiler {
                         result = (int) doubleResult;
                     }
                     if (result instanceof Integer) {
-                        symbolTable.updateValue(variableName, (Integer) result); // Update the value in symbol table (no memory write)
-                        System.out.println("Assigned integer value: " + result + " to variable: " + variableName);
+                        symbolTable.updateValue(variableName, (Integer) result); // Update the value in symbol table
 
-                        // Add to literal table after computation (no need to store in memory)
+                        // Add to literal table after computation
                         int literalID = literalTable.addLiteral((Integer) result);
                         System.out.println("Encountered new literal " + result + " with id " + literalID);
                     } else {
@@ -757,24 +762,8 @@ public class Compiler {
 
                 Integer assignTokenID = operatorTable.get("=");
                 Integer semicolonTokenID = operatorTable.get(";");
-
-                // Print TokenIDs (example, adjust according to your actual logic)
                 System.out.print("TokenIDs: " + symbolTable.getIdByName(variableName) + " " + assignTokenID + " " + literalTable.getLiteralID(result) + " " + semicolonTokenID + " ");
                 System.out.println();
-
-                // Add code generators based on the operations performed
-                List<CodeGenerator> codeGenerators = new ArrayList<>();
-
-                // Split the expression into operands and operators for arithmetic
-                String[] expressionTokens = valueExpression.split(" ");
-                for (String token : expressionTokens) {
-                    if (token.equals("+") || token.equals("-") || token.equals("*") || token.equals("/")) {
-                        // Handle arithmetic operator (no need to store anything in memory)
-                        String operand1 = expressionTokens[0]; // First operand
-                        String operand2 = expressionTokens[2]; // Second operand
-                        // mipsGenerator.generateArithmeticOperation(token, operand1, operand2, variableName);
-                    }
-                }
 
             } catch (Exception e) {
                 System.out.println("Error: " + e.getMessage());
@@ -1234,40 +1223,6 @@ public class Compiler {
 
     private static boolean isInsideControlStructure(){
         return controlStructure > 0;
-    }
-
-    private static void enterControlStructure(){
-        controlStructure++;
-    }
-
-    private static void exitControlStructure(){
-        if(controlStructure > 0){
-            controlStructure--;
-        }else{
-            System.out.println("Error: Trying to exit a control structure when none are active.");
-        }
-    }
-
-    private static String loadVariableIfNeeded(String variableName) {
-        if (!symbolTable.containsVariable(variableName)) {
-            throw new RuntimeException("Variable '" + variableName + "' is not declared.");
-        }
-
-        SymbolTable.Entry entry = symbolTable.getEntry(variableName);
-
-        if (entry.getScope().equals("global")) {
-            // For global variables, load from .data section
-            String reg = mipsGenerator.allocateTempRegister();
-            mipsGenerator.loadFromData(variableName, reg);  // Custom method for global variables
-            return reg;
-        } else if (entry.getScope().equals("local")) {
-            // For local variables, load from the stack using your method
-            String reg = mipsGenerator.allocateTempRegister();
-            mipsGenerator.loadVariable(variableName, reg);  // Using your loadVariable method
-            return reg;
-        } else {
-            throw new RuntimeException("Unknown variable scope for '" + variableName + "'.");
-        }
     }
 
 }
