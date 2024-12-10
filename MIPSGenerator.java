@@ -638,7 +638,7 @@ public class MIPSGenerator {
     // Method to generate MIPS code for a while loop
     public void generateWhileLoop(String condition, List<String> bodyTokens) {
         // Debugging: Print the body tokens before processing them
-//        System.out.println("Block tokens: " + bodyTokens);
+        // System.out.println("Block tokens: " + bodyTokens);
 
         // Ensure that bodyTokens is not empty
         if (bodyTokens == null || bodyTokens.isEmpty()) {
@@ -672,15 +672,28 @@ public class MIPSGenerator {
         StringBuilder statementBuilder = new StringBuilder();
         for (String bodyToken : bodyTokens) {
             bodyToken = bodyToken.trim();
+
+            // If the body token contains an assignment (e.g., "i = 10" or "i++")
             if (bodyToken.contains("=")) {
                 handleAssignmentStatement(bodyToken);
-            } else if (bodyToken.equals(";")) {
+            }
+            // If the body token is an increment or decrement (e.g., "i++" or "i--")
+            else if (bodyToken.equals("++") || bodyToken.equals("--")) {
+                // Handle the increment or decrement operation
+                if (bodyToken.equals("++")) {
+                    generateIncrementOrDecrement(loopVar, true) ; // Increment
+                } else if (bodyToken.equals("--")) {
+                    generateIncrementOrDecrement(loopVar, false);  // Decrement
+                }
+            }
+            // If the body token is a semicolon or needs special handling
+            else if (bodyToken.equals(";")) {
                 String completeStatement = statementBuilder.toString().trim();
                 statementBuilder.setLength(0);
                 if (completeStatement.startsWith("print")) {
-                    handlePrintStatement(completeStatement);
+                    handlePrintStatement(completeStatement);  // Print statement
                 } else {
-                    processBodyToken(completeStatement);
+                    processBodyToken(completeStatement);  // Process other tokens
                 }
             } else {
                 statementBuilder.append(bodyToken).append(" ");
@@ -693,17 +706,6 @@ public class MIPSGenerator {
         // Label for the end of the loop
         addMipsInstruction("label_7:");
     }
-
-//    public String assignRegisterForCondition() {
-//        // Generate a new register for condition result, e.g., $t5, $t6, etc.
-//        // This assumes you have a method to get the next available register.
-//        String conditionRegister = getNextAvailableRegister();
-//
-//        // Optionally, add the register to the symbol table to keep track of it.
-//        symbolTable.putConditionRegister(conditionRegister);
-//
-//        return conditionRegister;
-//    }
 
 
     public void processToken(String token) {
@@ -913,6 +915,28 @@ public class MIPSGenerator {
         addMipsInstruction("# Increment variable " + variable);
         addMipsInstruction("addi " + register + ", " + register + ", 1");
     }
+
+    public void generateIncrementOrDecrement(String variable, boolean isIncrement) {
+        // Check if the variable is already assigned a register
+        String register = symbolTable.getRegister(variable);
+
+        if (register == null) {
+            // If the variable doesn't have a register, assign one
+            register = allocateTempRegister();
+        }
+
+        // Determine the operation type (increment or decrement)
+        if (isIncrement) {
+            // Generate MIPS instructions to increment the value in the register
+            addMipsInstruction("# Increment variable " + variable);
+            addMipsInstruction("addi " + register + ", " + register + ", 1");  // This should print the instruction
+        } else {
+            // Generate MIPS instructions to decrement the value in the register
+            addMipsInstruction("# Decrement variable " + variable);
+            addMipsInstruction("subi " + register + ", " + register + ", 1");  // This should print the instruction
+        }
+    }
+
 
 
     // Method to handle the entire for loop with the print and increment functionality

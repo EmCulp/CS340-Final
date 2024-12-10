@@ -35,7 +35,6 @@ Token ID: 907 => Binary: 1110001011
 Token ID: 908 => Binary: 1110001100
 Token ID: 909 => Binary: 1110001101
 Token ID: 910 => Binary: 1110001110
-Token ID: 911 => Binary: 1110001111
 
 
 Token IDs in Binary for Operator Table:
